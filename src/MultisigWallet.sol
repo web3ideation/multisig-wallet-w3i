@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// This file is part of the MultiSigWallet project.
+// This file is part of the MultisigWallet project.
 // Portions of this code are derived from the OpenZeppelin Contracts library.
 // OpenZeppelin Contracts are licensed under the MIT License.
 // See the LICENSE file for more details.
@@ -12,10 +12,10 @@ import "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721.sol";
 import "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol";
 
 /**
- * @title MultiSigWallet
+ * @title MultisigWallet
  * @dev A multisig wallet contract that requires multiple confirmations for transactions, including managing owners.
  */
-contract MultiSigWallet is ReentrancyGuard, IERC721Receiver {
+contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
     /// @notice Emitted when a deposit is made.
     /// @param sender The address that sent the deposit.
     /// @param amountOrTokenId The amount of the deposit.
@@ -112,7 +112,7 @@ contract MultiSigWallet is ReentrancyGuard, IERC721Receiver {
     mapping(uint256 => mapping(address => bool)) public isConfirmed;
     Transaction[] public transactions;
 
-    modifier onlyMultiSigOwner() {
+    modifier onlyMultisigOwner() {
         require(isOwner[msg.sender], "Not a multisig owner");
         _;
     }
@@ -172,7 +172,7 @@ contract MultiSigWallet is ReentrancyGuard, IERC721Receiver {
         address _to,
         uint256 _value,
         bytes memory _data
-    ) public onlyMultiSigOwner {
+    ) public onlyMultisigOwner {
         uint256 txIndex = transactions.length;
 
         transactions.push(
@@ -212,7 +212,7 @@ contract MultiSigWallet is ReentrancyGuard, IERC721Receiver {
         uint256 _txIndex
     )
         public
-        onlyMultiSigOwner
+        onlyMultisigOwner
         txExists(_txIndex)
         isActive(_txIndex)
         notConfirmed(_txIndex)
@@ -242,7 +242,7 @@ contract MultiSigWallet is ReentrancyGuard, IERC721Receiver {
         uint256 _txIndex
     )
         internal
-        onlyMultiSigOwner
+        onlyMultisigOwner
         txExists(_txIndex)
         isActive(_txIndex)
         nonReentrant
@@ -298,7 +298,7 @@ contract MultiSigWallet is ReentrancyGuard, IERC721Receiver {
      */
     function revokeConfirmation(
         uint256 _txIndex
-    ) public onlyMultiSigOwner txExists(_txIndex) isActive(_txIndex) {
+    ) public onlyMultisigOwner txExists(_txIndex) isActive(_txIndex) {
         Transaction storage transaction = transactions[_txIndex];
         require(isConfirmed[_txIndex][msg.sender], "Transaction not confirmed");
 
@@ -308,7 +308,7 @@ contract MultiSigWallet is ReentrancyGuard, IERC721Receiver {
         emit RevokeConfirmation(msg.sender, _txIndex);
     }
 
-    function sendETH(address _to, uint256 _amount) public onlyMultiSigOwner {
+    function sendETH(address _to, uint256 _amount) public onlyMultisigOwner {
         submitTransaction(TransactionType.ETH, _to, _amount, "");
     }
 
@@ -317,7 +317,7 @@ contract MultiSigWallet is ReentrancyGuard, IERC721Receiver {
      * @param _newOwner The address of the new owner.
      */
 
-    function addOwner(address _newOwner) public onlyMultiSigOwner {
+    function addOwner(address _newOwner) public onlyMultisigOwner {
         submitTransaction(TransactionType.AddOwner, _newOwner, 0, "");
     }
 
@@ -329,7 +329,7 @@ contract MultiSigWallet is ReentrancyGuard, IERC721Receiver {
         address _newOwner
     )
         internal
-        onlyMultiSigOwner
+        onlyMultisigOwner
         txExists(transactions.length - 1)
         isActive(transactions.length - 1)
     {
@@ -351,7 +351,7 @@ contract MultiSigWallet is ReentrancyGuard, IERC721Receiver {
      * @dev Removes a multisig owner. This function needs to be confirmed by the required number of owners.
      * @param _owner The address of the owner to remove.
      */
-    function removeOwner(address _owner) public onlyMultiSigOwner {
+    function removeOwner(address _owner) public onlyMultisigOwner {
         submitTransaction(TransactionType.RemoveOwner, _owner, 0, "");
     }
 
@@ -363,7 +363,7 @@ contract MultiSigWallet is ReentrancyGuard, IERC721Receiver {
         address _owner
     )
         internal
-        onlyMultiSigOwner
+        onlyMultisigOwner
         txExists(transactions.length - 1)
         isActive(transactions.length - 1)
     {
@@ -392,7 +392,7 @@ contract MultiSigWallet is ReentrancyGuard, IERC721Receiver {
         IERC20 token,
         address to,
         uint256 amount
-    ) public onlyMultiSigOwner {
+    ) public onlyMultisigOwner {
         // Encode the transfer data
         bytes memory data = abi.encodeWithSelector(
             token.transfer.selector,
@@ -409,7 +409,7 @@ contract MultiSigWallet is ReentrancyGuard, IERC721Receiver {
         address from,
         address to,
         uint256 amount
-    ) public onlyMultiSigOwner {
+    ) public onlyMultisigOwner {
         // Encode the transferFrom data
         bytes memory data = abi.encodeWithSelector(
             token.transferFrom.selector,
@@ -431,7 +431,7 @@ contract MultiSigWallet is ReentrancyGuard, IERC721Receiver {
         address _tokenAddress,
         address _to,
         uint256 _tokenId
-    ) public onlyMultiSigOwner {
+    ) public onlyMultisigOwner {
         bytes memory data = abi.encodeWithSignature(
             "safeTransferFrom(address,address,uint256)",
             address(this),
