@@ -82,6 +82,7 @@ also implement the safeERC20 thing from open zepplin ✅
 get the 2/3 consensus to work (50%+1 already seem to have worked correctly, just get it from the commit before the simplify commit)
 
 Add licence files
+use .env for privatekey und so
 
 -
 -
