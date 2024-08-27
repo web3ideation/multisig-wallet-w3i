@@ -85,13 +85,17 @@ Add licence files
 use .env for privatekey und so
 
 Some additional security considerations not directly tested here but worth keeping in mind:
-
 Gas limits: Ensure that loops in your contract (like in deactivatePendingTransactions) can't cause out-of-gas errors with a large number of transactions.
 Reentrancy: Your use of nonReentrant modifier is good. Make sure it's applied to all relevant functions.
 Integer overflow/underflow: Solidity 0.8.x provides built-in overflow/underflow protection, which is great.
 Event emission: Ensure all important state changes emit appropriate events for off-chain monitoring.
 
-was mit ERC721 und ERC20 test?
+was mit ERC721 und ERC20 tests im testscript?
+
+erst nochmal den erc721 transfer funktion checken
+dann mit mehreren owneren checken
+dann add und remove owner checken
+dann richtiges extensives testscript schreiben
 
 -
 -
