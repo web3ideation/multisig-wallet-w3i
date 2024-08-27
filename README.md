@@ -92,10 +92,14 @@ Event emission: Ensure all important state changes emit appropriate events for o
 
 was mit ERC721 und ERC20 tests im testscript?
 
-erst nochmal den erc721 transfer funktion checken
-dann mit mehreren owneren checken
-dann add und remove owner checken
+erst nochmal den erc721 transfer funktion checken ✅
+add und remove owner checken
+dann mit mehreren owneren checken (hierfür vlt 5 owners und unterschiedliche numImportantDecisionConfirmations wählen)
 dann richtiges extensives testscript schreiben
+
+spießer proposals
+transaction index should start with 1 instead of 0
+for the transfer erc20 and 721 functions of the multisig wallet the from is obviously this.address, so it shouldnt be needed in the functions arguments
 
 -
 -
