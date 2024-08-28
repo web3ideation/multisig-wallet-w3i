@@ -223,11 +223,27 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
 
         emit ConfirmTransaction(msg.sender, _txIndex);
 
-        uint256 numConfirmationsRequired = (transaction.transactionType ==
-            TransactionType.AddOwner ||
-            transaction.transactionType == TransactionType.RemoveOwner)
-            ? numImportantDecisionConfirmations
-            : numNormalDecisionConfirmations;
+        //!!! when i have a working logic for the 50%+1 and 2/3 numConfirmationsRequired I should use this commented out code (tho make sure that for the case of removeOwner only owners.length -1 is required so that the to be removed owner doesnt have a veto)
+        // uint256 numConfirmationsRequired = (transaction.transactionType ==
+        //     TransactionType.AddOwner ||
+        //     transaction.transactionType == TransactionType.RemoveOwner)
+        //     ? numImportantDecisionConfirmations
+        //     : numNormalDecisionConfirmations;
+
+        uint256 numConfirmationsRequired;
+        if (transaction.transactionType == TransactionType.AddOwner) {
+            numConfirmationsRequired = numImportantDecisionConfirmations;
+        } else if (transaction.transactionType == TransactionType.RemoveOwner) {
+            if (owners.length == 2) {
+                numConfirmationsRequired = numImportantDecisionConfirmations;
+            } else {
+                numConfirmationsRequired =
+                    numImportantDecisionConfirmations -
+                    1;
+            }
+        } else {
+            numConfirmationsRequired = numNormalDecisionConfirmations;
+        }
 
         if (transaction.numConfirmations >= numConfirmationsRequired) {
             executeTransaction(_txIndex);
@@ -318,6 +334,8 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      */
 
     function addOwner(address _newOwner) public onlyMultisigOwner {
+        //!!! I think this should be added here aswell require(_newOwner != address(0), "Invalid owner");
+        require(!isOwner[_newOwner], "Owner already exists");
         submitTransaction(TransactionType.AddOwner, _newOwner, 0, "");
     }
 
@@ -333,6 +351,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         txExists(transactions.length - 1)
         isActive(transactions.length - 1)
     {
+        //!!! also add a check that the importantNumconfirmation is used, since maybe a malicious proposer could try to use the "other"enum to propose an add or remove owner whith only the normalnumconfirmation required.
         require(_newOwner != address(0), "Invalid owner");
         require(!isOwner[_newOwner], "Owner already exists");
 
@@ -342,7 +361,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         isOwner[_newOwner] = true;
         owners.push(_newOwner);
 
-        updateConfirmationsRequired();
+        updateConfirmationsRequired(); // is this voulnerable to a reentrnacy attack?
 
         emit OwnerAdded(_newOwner);
     }
@@ -352,6 +371,8 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      * @param _owner The address of the owner to remove.
      */
     function removeOwner(address _owner) public onlyMultisigOwner {
+        //!!! i thin this should be added here as well         require(isOwner[_owner], "Not an owner");
+
         submitTransaction(TransactionType.RemoveOwner, _owner, 0, "");
     }
 
@@ -367,6 +388,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         txExists(transactions.length - 1)
         isActive(transactions.length - 1)
     {
+        //!!! also add a check that the importantNumconfirmation is used, since maybe a malicious proposer could try to use the "other"enum to propose an add or remove owner whith only the normalnumconfirmation required.
         require(isOwner[_owner], "Not an owner");
 
         // Clear pending transactions before adding the new owner
@@ -514,7 +536,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         // numImportantDecisionConfirmations = (2 * ownerCount + 2) / 3; // !!! these don't really work so i am using a simple approach for now
         if (ownerCount > 2) {
             numNormalDecisionConfirmations = ownerCount - 1;
-            numImportantDecisionConfirmations = ownerCount - 1;
+            numImportantDecisionConfirmations = ownerCount;
         } else {
             numNormalDecisionConfirmations = ownerCount;
             numImportantDecisionConfirmations = ownerCount;
