@@ -265,11 +265,27 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
     {
         Transaction storage transaction = transactions[_txIndex];
 
-        uint256 numConfirmationsRequired = (transaction.transactionType ==
-            TransactionType.AddOwner ||
-            transaction.transactionType == TransactionType.RemoveOwner)
-            ? numImportantDecisionConfirmations
-            : numNormalDecisionConfirmations;
+        //!!! when i have a working logic for the 50%+1 and 2/3 numConfirmationsRequired I should use this commented out code (tho make sure that for the case of removeOwner only owners.length -1 is required so that the to be removed owner doesnt have a veto)
+        // uint256 numConfirmationsRequired = (transaction.transactionType ==
+        //     TransactionType.AddOwner ||
+        //     transaction.transactionType == TransactionType.RemoveOwner)
+        //     ? numImportantDecisionConfirmations
+        //     : numNormalDecisionConfirmations;
+
+        uint256 numConfirmationsRequired;
+        if (transaction.transactionType == TransactionType.AddOwner) {
+            numConfirmationsRequired = numImportantDecisionConfirmations;
+        } else if (transaction.transactionType == TransactionType.RemoveOwner) {
+            if (owners.length == 2) {
+                numConfirmationsRequired = numImportantDecisionConfirmations;
+            } else {
+                numConfirmationsRequired =
+                    numImportantDecisionConfirmations -
+                    1;
+            }
+        } else {
+            numConfirmationsRequired = numNormalDecisionConfirmations;
+        }
 
         require(
             transaction.numConfirmations >= numConfirmationsRequired,
