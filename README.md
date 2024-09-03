@@ -94,9 +94,11 @@ Event emission: Ensure all important state changes emit appropriate events for o
 -add und remove owner checken -> nochmal von 3 initial ownern auf 5 hoch und auf 1 runter und wieder auf 3 hoch ✅
 -dann transfer eth erc20 ✅ und erc721 ✅ mit mehreren owneren checken (hierfür vlt 5 owners und unterschiedliche numImportantDecisionConfirmations wählen) ✅
 -dann richtiges extensives testscript schreiben ("now create a foundry testscript (\*.t.sol) that automatically tests all this stuff, transfering eth, erc20, erc721 and adding and removing owners and "other" (enum number 5) as well as all other functions extensively including the eventlogs")
+-------> next step das existierende testscript scheint die events / logs nicht richtig zu erwarten. nochmal neu cGPT fragen das zu überarbeiten aber ohne das script so zu verbiegen, dass tatsächliche fehler im multisig.sol vertuscht werden.
 -dann alle anpassungen durchführen
 -funktion nochmal mit testscript bestätigen
--extensives testscript und fuzzing schreiben (Add more edge case tests, particularly around owner management and transaction execution. ; Add tests for potential malicious scenarios to ensure the contract is secure against various attack vectors.)
+-extensives testscript und fuzzing schreiben (Add more edge case tests, particularly around owner management and transaction execution. ; Add tests for potential malicious scenarios to ensure the contract is secure against various attack vectors. ; 1. testFailAddExistingOwner() The failure in testFailAddExistingOwner() suggests that either:
+The contract allows adding an existing owner, which it shouldn't, or The test might be incorrectly asserting the behavior.)
 
 spießer proposals
 transaction index should start with 1 instead of 0
