@@ -237,7 +237,7 @@ contract MultisigWalletTest is Test {
         emit SubmitTransaction(
             MultisigWallet.TransactionType.ERC20,
             0,
-            address(erc20Token),
+            recipient,
             0,
             abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount),
             address(erc20Token),
@@ -264,7 +264,7 @@ contract MultisigWalletTest is Test {
         emit ExecuteTransaction(
             MultisigWallet.TransactionType.ERC20,
             0,
-            address(erc20Token),
+            recipient,
             0,
             abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount),
             address(erc20Token),
@@ -516,7 +516,7 @@ contract MultisigWalletTest is Test {
         assertEq(address(multisigWallet).balance, INITIAL_BALANCE - amount);
     }
 
-    function testFailAddExistingOwner() public {
+    function testRevertWhenAddExistingOwner() public {
         uint256 requiredConfirmations = multisigWallet
             .numImportantDecisionConfirmations();
 

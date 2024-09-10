@@ -188,14 +188,22 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         );
 
         // Decode the data to extract the token address and amount / tokenId
-        (address tokenAddress, uint256 amountOrTokenId) = decodeTransactionData(
-            _data
-        );
+        (address to, uint256 amountOrTokenId) = decodeTransactionData(_data); // !!! I can probably safe gas here when not running it when its a eth or remove/AddOwner transaction
+
+        address recipient = (_transactionType == TransactionType.ERC20 ||
+            _transactionType == TransactionType.ERC721)
+            ? to
+            : _to;
+
+        address tokenAddress = (_transactionType == TransactionType.ERC20 ||
+            _transactionType == TransactionType.ERC721)
+            ? _to
+            : address(0);
 
         emit SubmitTransaction(
             _transactionType,
             txIndex,
-            _to,
+            recipient,
             _value,
             _data,
             tokenAddress, //!!! whats this when the proposal is just about sending ETH without ERC20 or ERC721?
@@ -306,14 +314,26 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         transaction.isActive = false;
 
         // Decode the data to extract the token address and amount / tokenId
-        (address tokenAddress, uint256 amountOrTokenId) = decodeTransactionData(
+        (address to, uint256 amountOrTokenId) = decodeTransactionData(
             transaction.data
-        );
+        ); // !!! I can probably safe gas here when not running it when its a eth or remove/AddOwner transaction
+
+        address recipient = (transaction.transactionType ==
+            TransactionType.ERC20 ||
+            transaction.transactionType == TransactionType.ERC721)
+            ? to
+            : transaction.to;
+
+        address tokenAddress = (transaction.transactionType ==
+            TransactionType.ERC20 ||
+            transaction.transactionType == TransactionType.ERC721)
+            ? transaction.to
+            : address(0);
 
         emit ExecuteTransaction(
             transaction.transactionType,
             _txIndex,
-            transaction.to,
+            recipient,
             transaction.value,
             transaction.data,
             tokenAddress,
@@ -439,6 +459,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         );
         // Submit the transaction for confirmation
         submitTransaction(TransactionType.ERC20, address(token), 0, data);
+        // !!! should I emit an event here?
     }
 
     // Safe ERC20 transferFrom function
@@ -457,6 +478,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         );
         // Submit the transaction for confirmation
         submitTransaction(TransactionType.ERC20, address(token), 0, data);
+        // !!! should I emit an event here?
     }
 
     /**
@@ -477,6 +499,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
             _tokenId
         );
         submitTransaction(TransactionType.ERC721, _tokenAddress, 0, data);
+        // !!! should I emit an event here?
     }
 
     function deactivatePendingTransactions() internal {
@@ -504,7 +527,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
 
     function decodeTransactionData(
         bytes memory data
-    ) internal pure returns (address tokenAddress, uint256 amountOrTokenId) {
+    ) internal pure returns (address to, uint256 amountOrTokenId) {
         bytes4 erc20Selector = bytes4(keccak256("transfer(address,uint256)"));
         bytes4 erc721Selector = bytes4(
             keccak256("safeTransferFrom(address,address,uint256)")
