@@ -407,8 +407,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      * @param _owner The address of the owner to remove.
      */
     function removeOwner(address _owner) public onlyMultisigOwner {
-        //!!! i thin this should be added here as well         require(isOwner[_owner], "Not an owner");
-
+        require(isOwner[_owner], "Not an owner");
         submitTransaction(TransactionType.RemoveOwner, _owner, 0, "");
     }
 

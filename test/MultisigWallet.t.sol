@@ -19,6 +19,7 @@ contract MultisigWalletTest is Test {
     address public owner3 = address(3);
     address public owner4 = address(4);
     address public owner5 = address(5);
+    address public nonOwner = address(100);
 
     event Deposit(address indexed sender, uint256 amount, uint256 balance);
     event SubmitTransaction(
@@ -396,6 +397,7 @@ contract MultisigWalletTest is Test {
     }
 
     function testFailExecuteWithInsufficientConfirmations() public {
+        // !!! double check this with the "Fail" in the name maybe the test is not working correctly
         address payable recipient = payable(address(0x123));
         uint256 amount = 1 ether;
         uint256 requiredConfirmations = multisigWallet
@@ -652,6 +654,45 @@ contract MultisigWalletTest is Test {
         vm.expectRevert("Transaction not active");
         vm.prank(owners[0]);
         multisigWallet.confirmTransaction(0);
+    }
+
+    function testNonOwnerSubmitTransaction() public {
+        vm.expectRevert("Not a multisig owner");
+        vm.prank(nonOwner);
+        multisigWallet.sendETH(owner2, 1 ether);
+    }
+
+    function testNonOwnerConfirmTransaction() public {
+        vm.prank(owner1);
+        multisigWallet.sendETH(owner2, 1 ether);
+
+        vm.expectRevert("Not a multisig owner");
+        vm.prank(nonOwner);
+        multisigWallet.confirmTransaction(0);
+    }
+
+    function testDoubleConfirmation() public {
+        vm.prank(owner1);
+        multisigWallet.sendETH(owner2, 1 ether);
+
+        vm.prank(owner1);
+        multisigWallet.confirmTransaction(0);
+
+        vm.expectRevert("Transaction already confirmed");
+        vm.prank(owner1);
+        multisigWallet.confirmTransaction(0);
+    }
+
+    function testExecuteNonExistentTransaction() public {
+        vm.expectRevert("Transaction does not exist");
+        vm.prank(owner1);
+        multisigWallet.confirmTransaction(999);
+    }
+
+    function testRemoveNonOwner() public {
+        vm.expectRevert("Not an owner");
+        vm.prank(owner1);
+        multisigWallet.removeOwner(nonOwner);
     }
 }
 
