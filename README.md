@@ -51,7 +51,9 @@ also implement the safeERC20 thing from open zepplin ✅
 -dann richtiges extensives testscript schreiben ("now create a foundry testscript (\*.t.sol) that automatically tests all this stuff, transfering eth, erc20, erc721 and adding and removing owners and "other" (enum number 5) as well as all other functions extensively including the eventlogs")
 -------> next step das existierende testscript scheint die events / logs nicht richtig zu erwarten. nochmal neu cGPT fragen das zu überarbeiten aber ohne das script so zu verbiegen, dass tatsächliche fehler im multisig.sol vertuscht werden.✅ ---> step by step die fehlschlagenden tests durchgehen, siehe claudeAI✅ --> habe ich versehentlich test funktionen gelöscht... Alte commits checken und vergleichen✅
 
-➡️Num confirmations; wenn stimme1 + stimme2 + ... > Anzahl User \*0,5+1 dann execute
+Num confirmations; wenn stimme1 + stimme2 + ... > Anzahl User \*0,5+1 dann execute ✅
+
+➡️ adapt testscript to the new voting mechanism
 
 Reentrancy Guard: Use OpenZeppelin's ReentrancyGuard modifier for public and external functions to protect against reentrancy attacks. You already inherit from ReentrancyGuard, so applying its modifier to susceptible functions is advisable.
 -> bei addOwnerInternal gibts einen fehler wenn ich den reentrancy guard nutze...

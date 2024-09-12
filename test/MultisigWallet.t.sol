@@ -81,8 +81,6 @@ contract MultisigWalletTest is Test {
 
     function testAddOwner() public {
         address newOwner = address(0x123);
-        uint256 requiredConfirmations = multisigWallet
-            .numImportantDecisionConfirmations();
 
         vm.expectEmit(true, true, true, true);
         emit SubmitTransaction(
@@ -98,7 +96,7 @@ contract MultisigWalletTest is Test {
         vm.prank(owner1);
         multisigWallet.addOwner(newOwner);
 
-        for (uint i = 0; i < requiredConfirmations - 1; i++) {
+        for (uint i = 0; i < (owners.length * 2 + 2) / 3; i++) {
             vm.expectEmit(true, true, false, true);
             emit ConfirmTransaction(owners[i], 0);
             vm.prank(owners[i]);
@@ -106,7 +104,7 @@ contract MultisigWalletTest is Test {
         }
 
         vm.expectEmit(true, true, false, true);
-        emit ConfirmTransaction(owners[requiredConfirmations - 1], 0);
+        emit ConfirmTransaction(owners[(owners.length * 2 + 2) / 3], 0);
         vm.expectEmit(true, false, false, true);
         emit OwnerAdded(newOwner);
         vm.expectEmit(true, true, true, true);
@@ -118,9 +116,9 @@ contract MultisigWalletTest is Test {
             "",
             address(0),
             0,
-            owners[requiredConfirmations - 1]
+            owners[(owners.length * 2 + 2) / 3]
         );
-        vm.prank(owners[requiredConfirmations - 1]);
+        vm.prank(owners[(owners.length * 2 + 2) / 3]);
         multisigWallet.confirmTransaction(0);
 
         assertTrue(multisigWallet.isOwner(newOwner));
@@ -130,8 +128,6 @@ contract MultisigWalletTest is Test {
     function testRemoveOwner() public {
         // !!! so seems like the removal of an owner already happens too early, like not all -1 owners have to confirm the removal. check that if there is a logic error in the contract
         uint256 initialOwnerCount = multisigWallet.getOwnerCount();
-        uint256 requiredConfirmations = multisigWallet
-            .numImportantDecisionConfirmations();
 
         vm.expectEmit(true, true, true, true);
         emit SubmitTransaction(
@@ -147,11 +143,11 @@ contract MultisigWalletTest is Test {
         vm.prank(owner1);
         multisigWallet.removeOwner(owner5);
 
-        for (uint i = 0; i < requiredConfirmations - 1; i++) {
+        for (uint i = 0; i * 1000 < (owners.length * 1000 * 2) / 3; i++) {
             vm.expectEmit(true, true, false, true);
             emit ConfirmTransaction(owners[i], 0);
 
-            if (i == requiredConfirmations - 2) {
+            if (i * 1000 == (owners.length * 1000 * 2) / 3) {
                 // This is the last confirmation, so expect the execution events
                 // vm.expectEmit(true, false, false, true);
                 // emit PendingTransactionsDeactivated(); // !!! Why do i get a compilation error here??
@@ -192,8 +188,6 @@ contract MultisigWalletTest is Test {
     function testSubmitAndConfirmETHTransaction() public {
         address payable recipient = payable(address(0x123));
         uint256 amount = 1 ether;
-        uint256 requiredConfirmations = multisigWallet
-            .numNormalDecisionConfirmations();
 
         vm.expectEmit(true, true, true, true);
         emit SubmitTransaction(
@@ -214,7 +208,7 @@ contract MultisigWalletTest is Test {
             ""
         );
 
-        for (uint i = 0; i < requiredConfirmations - 1; i++) {
+        for (uint i = 0; i < owners.length / 2; i++) {
             vm.expectEmit(true, true, false, true);
             emit ConfirmTransaction(owners[i], 0);
             vm.prank(owners[i]);
@@ -222,7 +216,7 @@ contract MultisigWalletTest is Test {
         }
 
         vm.expectEmit(true, true, false, true);
-        emit ConfirmTransaction(owners[requiredConfirmations - 1], 0);
+        emit ConfirmTransaction(owners[owners.length / 2], 0);
         vm.expectEmit(true, true, true, true);
         emit ExecuteTransaction(
             MultisigWallet.TransactionType.ETH,
@@ -232,9 +226,9 @@ contract MultisigWalletTest is Test {
             "",
             address(0),
             0, // amountOrTokenId should be 0 for ETH transfers
-            owners[requiredConfirmations - 1]
+            owners[owners.length / 2]
         );
-        vm.prank(owners[requiredConfirmations - 1]);
+        vm.prank(owners[owners.length / 2]);
         multisigWallet.confirmTransaction(0);
 
         assertEq(recipient.balance, amount);
@@ -244,8 +238,6 @@ contract MultisigWalletTest is Test {
     function testSubmitAndConfirmERC20Transaction() public {
         address recipient = address(0x123);
         uint256 amount = 100 * 10 ** 18;
-        uint256 requiredConfirmations = multisigWallet
-            .numNormalDecisionConfirmations();
 
         uint256 initialBalance = erc20Token.balanceOf(address(multisigWallet));
 
@@ -267,7 +259,7 @@ contract MultisigWalletTest is Test {
             amount
         );
 
-        for (uint i = 0; i < requiredConfirmations - 1; i++) {
+        for (uint i = 0; i < owners.length / 2; i++) {
             vm.expectEmit(true, true, false, true);
             emit ConfirmTransaction(owners[i], 0);
             vm.prank(owners[i]);
@@ -275,7 +267,7 @@ contract MultisigWalletTest is Test {
         }
 
         vm.expectEmit(true, true, false, true);
-        emit ConfirmTransaction(owners[requiredConfirmations - 1], 0);
+        emit ConfirmTransaction(owners[owners.length / 2], 0);
         vm.expectEmit(true, true, true, true);
         emit ExecuteTransaction(
             MultisigWallet.TransactionType.ERC20,
@@ -285,9 +277,9 @@ contract MultisigWalletTest is Test {
             abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount),
             address(erc20Token),
             amount,
-            owners[requiredConfirmations - 1]
+            owners[owners.length / 2]
         );
-        vm.prank(owners[requiredConfirmations - 1]);
+        vm.prank(owners[owners.length / 2]);
         multisigWallet.confirmTransaction(0);
 
         assertEq(erc20Token.balanceOf(recipient), amount);
@@ -300,8 +292,6 @@ contract MultisigWalletTest is Test {
     function testSubmitAndConfirmERC721Transaction() public {
         address recipient = address(0x123);
         uint256 tokenId = 1;
-        uint256 requiredConfirmations = multisigWallet
-            .numNormalDecisionConfirmations();
 
         assertEq(erc721Token.ownerOf(tokenId), address(multisigWallet));
 
@@ -324,7 +314,7 @@ contract MultisigWalletTest is Test {
         vm.prank(owner1);
         multisigWallet.transferERC721(address(erc721Token), recipient, tokenId);
 
-        for (uint i = 0; i < requiredConfirmations - 1; i++) {
+        for (uint i = 0; i < owners.length / 2; i++) {
             vm.expectEmit(true, true, false, true);
             emit ConfirmTransaction(owners[i], 0);
             vm.prank(owners[i]);
@@ -332,7 +322,7 @@ contract MultisigWalletTest is Test {
         }
 
         vm.expectEmit(true, true, false, true);
-        emit ConfirmTransaction(owners[requiredConfirmations - 1], 0);
+        emit ConfirmTransaction(owners[owners.length / 2], 0);
         vm.expectEmit(true, true, true, true);
         emit ExecuteTransaction(
             MultisigWallet.TransactionType.ERC721,
@@ -347,18 +337,15 @@ contract MultisigWalletTest is Test {
             ),
             address(erc721Token),
             tokenId,
-            owners[requiredConfirmations - 1]
+            owners[owners.length / 2]
         );
-        vm.prank(owners[requiredConfirmations - 1]);
+        vm.prank(owners[owners.length / 2]);
         multisigWallet.confirmTransaction(0);
 
         assertEq(erc721Token.ownerOf(tokenId), recipient);
     }
 
     function testRevokeConfirmation() public {
-        uint256 requiredConfirmations = multisigWallet
-            .numNormalDecisionConfirmations();
-
         vm.expectEmit(true, true, true, true);
         emit SubmitTransaction(
             MultisigWallet.TransactionType.ETH,
@@ -378,7 +365,7 @@ contract MultisigWalletTest is Test {
             ""
         );
 
-        for (uint i = 0; i < requiredConfirmations - 1; i++) {
+        for (uint i = 0; i < owners.length / 2; i++) {
             vm.expectEmit(true, true, false, true);
             emit ConfirmTransaction(owners[i], 0);
             vm.prank(owners[i]);
@@ -390,7 +377,7 @@ contract MultisigWalletTest is Test {
         vm.prank(owner1);
         multisigWallet.revokeConfirmation(0);
 
-        vm.prank(owners[requiredConfirmations - 1]);
+        vm.prank(owners[owners.length / 2]);
         multisigWallet.confirmTransaction(0);
 
         assertEq(address(0x123).balance, 0);
@@ -400,8 +387,6 @@ contract MultisigWalletTest is Test {
         // !!! double check this with the "Fail" in the name maybe the test is not working correctly
         address payable recipient = payable(address(0x123));
         uint256 amount = 1 ether;
-        uint256 requiredConfirmations = multisigWallet
-            .numNormalDecisionConfirmations();
 
         vm.prank(owner1);
         multisigWallet.submitTransaction(
@@ -411,7 +396,7 @@ contract MultisigWalletTest is Test {
             ""
         );
 
-        for (uint i = 0; i < requiredConfirmations - 1; i++) {
+        for (uint i = 0; i < owners.length / 2; i++) {
             vm.prank(owners[i]);
             multisigWallet.confirmTransaction(0);
         }
@@ -420,7 +405,7 @@ contract MultisigWalletTest is Test {
         assertEq(address(multisigWallet).balance, INITIAL_BALANCE);
 
         vm.expectRevert("Not enough confirmations");
-        vm.prank(owners[requiredConfirmations - 1]);
+        vm.prank(owners[owners.length / 2]);
         multisigWallet.confirmTransaction(0);
 
         assertEq(recipient.balance, 0);
@@ -437,8 +422,6 @@ contract MultisigWalletTest is Test {
 
     function testOtherTransaction() public {
         SimpleCounter counter = new SimpleCounter();
-        uint256 requiredConfirmations = multisigWallet
-            .numNormalDecisionConfirmations();
 
         bytes memory data = abi.encodeWithSignature("increment()");
         vm.expectEmit(true, true, true, true);
@@ -460,7 +443,7 @@ contract MultisigWalletTest is Test {
             data
         );
 
-        for (uint i = 0; i < requiredConfirmations - 1; i++) {
+        for (uint i = 0; i < owners.length / 2; i++) {
             vm.expectEmit(true, true, false, true);
             emit ConfirmTransaction(owners[i], 0);
             vm.prank(owners[i]);
@@ -468,7 +451,7 @@ contract MultisigWalletTest is Test {
         }
 
         vm.expectEmit(true, true, false, true);
-        emit ConfirmTransaction(owners[requiredConfirmations - 1], 0);
+        emit ConfirmTransaction(owners[owners.length / 2], 0);
         vm.expectEmit(true, true, true, true);
         emit ExecuteTransaction(
             MultisigWallet.TransactionType.Other,
@@ -478,9 +461,9 @@ contract MultisigWalletTest is Test {
             data,
             address(0),
             0,
-            owners[requiredConfirmations - 1]
+            owners[owners.length / 2]
         );
-        vm.prank(owners[requiredConfirmations - 1]);
+        vm.prank(owners[owners.length / 2]);
         multisigWallet.confirmTransaction(0);
 
         assertEq(counter.count(), 1);
@@ -489,8 +472,6 @@ contract MultisigWalletTest is Test {
     function testSendETH() public {
         address payable recipient = payable(address(0x123));
         uint256 amount = 1 ether;
-        uint256 requiredConfirmations = multisigWallet
-            .numNormalDecisionConfirmations();
 
         vm.expectEmit(true, true, true, true);
         emit SubmitTransaction(
@@ -506,7 +487,7 @@ contract MultisigWalletTest is Test {
         vm.prank(owner1);
         multisigWallet.sendETH(recipient, amount);
 
-        for (uint i = 0; i < requiredConfirmations - 1; i++) {
+        for (uint i = 0; i < owners.length / 2; i++) {
             vm.expectEmit(true, true, false, true);
             emit ConfirmTransaction(owners[i], 0);
             vm.prank(owners[i]);
@@ -514,7 +495,7 @@ contract MultisigWalletTest is Test {
         }
 
         vm.expectEmit(true, true, false, true);
-        emit ConfirmTransaction(owners[requiredConfirmations - 1], 0);
+        emit ConfirmTransaction(owners[owners.length / 2], 0);
         vm.expectEmit(true, true, true, true);
         emit ExecuteTransaction(
             MultisigWallet.TransactionType.ETH,
@@ -524,9 +505,9 @@ contract MultisigWalletTest is Test {
             "",
             address(0),
             0, // amountOrTokenId should be 0 for ETH transfers
-            owners[requiredConfirmations - 1]
+            owners[owners.length / 2]
         );
-        vm.prank(owners[requiredConfirmations - 1]);
+        vm.prank(owners[owners.length / 2]);
         multisigWallet.confirmTransaction(0);
 
         assertEq(recipient.balance, amount);
@@ -534,13 +515,10 @@ contract MultisigWalletTest is Test {
     }
 
     function testRevertWhenAddExistingOwner() public {
-        uint256 requiredConfirmations = multisigWallet
-            .numImportantDecisionConfirmations();
-
         vm.prank(owner1);
         multisigWallet.addOwner(address(0x123));
 
-        for (uint i = 0; i < requiredConfirmations; i++) {
+        for (uint i = 0; i < (owners.length * 2 + 2) / 3; i++) {
             vm.prank(owners[i]);
             multisigWallet.confirmTransaction(0);
         }
@@ -552,28 +530,23 @@ contract MultisigWalletTest is Test {
 
     function testFailRemoveLastOwner() public {
         // so is the "fail" keyword here a problem?
-        uint256 requiredConfirmations = multisigWallet
-            .numImportantDecisionConfirmations();
 
         // Remove all owners except two
         for (uint i = 2; i < owners.length; i++) {
             vm.prank(owner1);
             multisigWallet.removeOwner(owners[i]);
 
-            for (uint j = 0; j < requiredConfirmations; j++) {
+            for (uint j = 0; j < (owners.length * 2 + 2) / 3; j++) {
                 vm.prank(owners[j]);
                 multisigWallet.confirmTransaction(i - 2);
             }
-
-            requiredConfirmations = multisigWallet
-                .numImportantDecisionConfirmations();
         }
 
         // Try to remove the second-to-last owner
         vm.prank(owner1);
         multisigWallet.removeOwner(owner2);
 
-        for (uint j = 0; j < requiredConfirmations; j++) {
+        for (uint j = 0; j < (owners.length * 2 + 2) / 3; j++) {
             vm.prank(owners[j]);
             multisigWallet.confirmTransaction(owners.length - 2);
         }
@@ -582,78 +555,6 @@ contract MultisigWalletTest is Test {
         vm.prank(owner1);
         vm.expectRevert("Cannot remove last owner");
         multisigWallet.removeOwner(owner1);
-    }
-
-    function testUpdateConfirmationsRequired() public {
-        uint256 initialNormalConfirmations = multisigWallet
-            .numNormalDecisionConfirmations();
-        uint256 initialImportantConfirmations = multisigWallet
-            .numImportantDecisionConfirmations();
-        uint256 requiredConfirmations = multisigWallet
-            .numImportantDecisionConfirmations();
-
-        vm.expectEmit(true, true, true, true);
-        emit SubmitTransaction(
-            MultisigWallet.TransactionType.RemoveOwner,
-            0,
-            owner5,
-            0,
-            "",
-            address(0),
-            0,
-            owner1
-        );
-        vm.prank(owner1);
-        multisigWallet.removeOwner(owner5);
-
-        for (uint i = 0; i < requiredConfirmations - 1; i++) {
-            vm.expectEmit(true, true, false, true);
-            emit ConfirmTransaction(owners[i], 0);
-
-            if (i == requiredConfirmations - 2) {
-                // This is the last confirmation, so expect the execution events
-                // vm.expectEmit(true, false, false, true);
-                // emit PendingTransactionsDeactivated(); // !!! Why do i get a compilation error here??
-                vm.expectEmit(true, false, false, true);
-                emit OwnerRemoved(owner5);
-                vm.expectEmit(true, true, true, true);
-                emit ExecuteTransaction(
-                    MultisigWallet.TransactionType.RemoveOwner,
-                    0,
-                    owner5,
-                    0,
-                    "",
-                    address(0),
-                    0,
-                    owners[i]
-                );
-            }
-
-            vm.prank(owners[i]);
-            multisigWallet.confirmTransaction(0);
-        }
-
-        // Check that owner5 is no longer an owner
-        assertFalse(multisigWallet.isOwner(owner5));
-
-        // Check the updated confirmation requirements
-        uint256 newNormalConfirmations = multisigWallet
-            .numNormalDecisionConfirmations();
-        uint256 newImportantConfirmations = multisigWallet
-            .numImportantDecisionConfirmations();
-
-        assertEq(newNormalConfirmations, initialNormalConfirmations - 1);
-        assertEq(newImportantConfirmations, initialImportantConfirmations - 1);
-
-        // Check that owner5 can no longer confirm transactions
-        vm.expectRevert("Not a multisig owner");
-        vm.prank(owner5);
-        multisigWallet.confirmTransaction(0);
-
-        // Check that trying to confirm the transaction again fails
-        vm.expectRevert("Transaction not active");
-        vm.prank(owners[0]);
-        multisigWallet.confirmTransaction(0);
     }
 
     function testNonOwnerSubmitTransaction() public {
