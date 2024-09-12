@@ -183,7 +183,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
                 data: _data,
                 isActive: true,
                 numConfirmations: 0,
-                owner: msg.sender //!!! is this fine or do i have to assign the msg.sender to a variable before the transaction.push?
+                owner: msg.sender
             })
         );
 
