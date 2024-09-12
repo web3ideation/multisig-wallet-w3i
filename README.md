@@ -51,9 +51,7 @@ also implement the safeERC20 thing from open zepplin ✅
 -dann richtiges extensives testscript schreiben ("now create a foundry testscript (\*.t.sol) that automatically tests all this stuff, transfering eth, erc20, erc721 and adding and removing owners and "other" (enum number 5) as well as all other functions extensively including the eventlogs")
 -------> next step das existierende testscript scheint die events / logs nicht richtig zu erwarten. nochmal neu cGPT fragen das zu überarbeiten aber ohne das script so zu verbiegen, dass tatsächliche fehler im multisig.sol vertuscht werden.✅ ---> step by step die fehlschlagenden tests durchgehen, siehe claudeAI✅ --> habe ich versehentlich test funktionen gelöscht... Alte commits checken und vergleichen✅
 
-➡️ !!! durchgehen
-
-Num confirmations; wenn stimme1 + stimme2 + ... > Anzahl User \*0,5+1 dann execute
+➡️Num confirmations; wenn stimme1 + stimme2 + ... > Anzahl User \*0,5+1 dann execute
 
 Reentrancy Guard: Use OpenZeppelin's ReentrancyGuard modifier for public and external functions to protect against reentrancy attacks. You already inherit from ReentrancyGuard, so applying its modifier to susceptible functions is advisable.
 -> bei addOwnerInternal gibts einen fehler wenn ich den reentrancy guard nutze...
@@ -77,6 +75,7 @@ natspec nochmal machen lassen weil ich ja sachen geändert hatte
 
 -extensives testscript und fuzzing schreiben (das testscript was ich aktuell habe verstehe ich nicht 100% also sicher gehen dass ich keinen scheiß teste) (Add more edge case tests, particularly around owner management and transaction execution. ; Add tests for potential malicious scenarios to ensure the contract is secure against various attack vectors. ; 1. testFailAddExistingOwner() The failure in testFailAddExistingOwner() suggests that either:
 The contract allows adding an existing owner, which it shouldn't, or The test might be incorrectly asserting the behavior.)
+doublecheck that if a multisigowner gets deleted that the numconfirmation gets reduced in case otherwise there would be more confirmations required than multisigowners exist.
 
 -
 -

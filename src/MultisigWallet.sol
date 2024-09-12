@@ -454,7 +454,6 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         updateConfirmationsRequired();
 
         emit OwnerRemoved(_owner);
-        //!!! doublecheck that if a multisigowner gets deleted that the numconfirmation gets reduced in case otherwise there would be more confirmations required than multisigowners exist.
     }
 
     // Safe ERC20 transfer function
@@ -471,7 +470,6 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         );
         // Submit the transaction for confirmation
         submitTransaction(TransactionType.ERC20, address(token), 0, data);
-        // !!! should I emit an event here?
     }
 
     // Safe ERC20 transferFrom function
@@ -490,7 +488,6 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         );
         // Submit the transaction for confirmation
         submitTransaction(TransactionType.ERC20, address(token), 0, data);
-        // !!! should I emit an event here?
     }
 
     /**
@@ -511,7 +508,6 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
             _tokenId
         );
         submitTransaction(TransactionType.ERC721, _tokenAddress, 0, data);
-        // !!! should I emit an event here?
     }
 
     function deactivatePendingTransactions() internal {
