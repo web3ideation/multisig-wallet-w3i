@@ -187,18 +187,22 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
             })
         );
 
-        // Decode the data to extract the token address and amount / tokenId
-        (address to, uint256 amountOrTokenId) = decodeTransactionData(_data); // !!! I can probably safe gas here when not running it when its a eth or remove/AddOwner transaction
+        address recipient = _to;
+        address tokenAddress = address(0);
+        uint256 _amountOrTokenId = 0;
 
-        address recipient = (_transactionType == TransactionType.ERC20 ||
-            _transactionType == TransactionType.ERC721)
-            ? to
-            : _to;
-
-        address tokenAddress = (_transactionType == TransactionType.ERC20 ||
-            _transactionType == TransactionType.ERC721)
-            ? _to
-            : address(0);
+        if (
+            _transactionType == TransactionType.ERC20 ||
+            _transactionType == TransactionType.ERC721
+        ) {
+            // Decode the data to extract the token address and amount / tokenId
+            (address to, uint256 amountOrTokenId) = decodeTransactionData(
+                _data
+            );
+            recipient = to;
+            tokenAddress = _to;
+            _amountOrTokenId = amountOrTokenId;
+        }
 
         emit SubmitTransaction(
             _transactionType,
@@ -207,7 +211,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
             _value,
             _data,
             tokenAddress, //!!! whats this when the proposal is just about sending ETH without ERC20 or ERC721?
-            amountOrTokenId, //!!! whats this when the proposal is just about sending ETH without ERC20 or ERC721?
+            _amountOrTokenId, //!!! whats this when the proposal is just about sending ETH without ERC20 or ERC721?
             msg.sender
         );
     }
@@ -313,22 +317,22 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
 
         transaction.isActive = false;
 
-        // Decode the data to extract the token address and amount / tokenId
-        (address to, uint256 amountOrTokenId) = decodeTransactionData(
-            transaction.data
-        ); // !!! I can probably safe gas here when not running it when its a eth or remove/AddOwner transaction
+        address recipient = transaction.to;
+        address tokenAddress = address(0);
+        uint256 _amountOrTokenId = 0;
 
-        address recipient = (transaction.transactionType ==
-            TransactionType.ERC20 ||
-            transaction.transactionType == TransactionType.ERC721)
-            ? to
-            : transaction.to;
-
-        address tokenAddress = (transaction.transactionType ==
-            TransactionType.ERC20 ||
-            transaction.transactionType == TransactionType.ERC721)
-            ? transaction.to
-            : address(0);
+        if (
+            transaction.transactionType == TransactionType.ERC20 ||
+            transaction.transactionType == TransactionType.ERC721
+        ) {
+            // Decode the data to extract the token address and amount / tokenId
+            (address to, uint256 amountOrTokenId) = decodeTransactionData(
+                transaction.data
+            );
+            recipient = to;
+            tokenAddress = transaction.to;
+            _amountOrTokenId = amountOrTokenId;
+        }
 
         emit ExecuteTransaction(
             transaction.transactionType,
@@ -337,7 +341,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
             transaction.value,
             transaction.data,
             tokenAddress,
-            amountOrTokenId,
+            _amountOrTokenId,
             msg.sender
         );
 
