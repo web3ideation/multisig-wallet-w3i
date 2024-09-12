@@ -210,8 +210,8 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
             recipient,
             _value,
             _data,
-            tokenAddress, //!!! whats this when the proposal is just about sending ETH without ERC20 or ERC721?
-            _amountOrTokenId, //!!! whats this when the proposal is just about sending ETH without ERC20 or ERC721?
+            tokenAddress,
+            _amountOrTokenId,
             msg.sender
         );
     }
@@ -305,9 +305,9 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         );
 
         if (transaction.transactionType == TransactionType.AddOwner) {
-            addOwnerInternal(transaction.to);
+            addOwnerInternal(transaction.to, _txIndex);
         } else if (transaction.transactionType == TransactionType.RemoveOwner) {
-            removeOwnerInternal(transaction.to);
+            removeOwnerInternal(transaction.to, _txIndex);
         } else {
             (bool success, ) = transaction.to.call{value: transaction.value}(
                 transaction.data
@@ -344,8 +344,6 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
             _amountOrTokenId,
             msg.sender
         );
-
-        //!!! Should the transaction[txIndex] be deleted after the execution? just to keep everything clean you know since we delete every once in a while when we add or remove owners or somebody actively revokes their proposal ... ?
     }
 
     /**
@@ -374,7 +372,6 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      */
 
     function addOwner(address _newOwner) public onlyMultisigOwner {
-        //!!! I think this should be added here aswell require(_newOwner != address(0), "Invalid owner");
         require(!isOwner[_newOwner], "Owner already exists");
         submitTransaction(TransactionType.AddOwner, _newOwner, 0, "");
     }
@@ -384,15 +381,20 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      * @param _newOwner The address of the new owner.
      */
     function addOwnerInternal(
-        address _newOwner
+        address _newOwner,
+        uint256 _txIndex
     )
         internal
         onlyMultisigOwner
         txExists(transactions.length - 1)
         isActive(transactions.length - 1)
     {
-        //!!! also add a check that the importantNumconfirmation is used, since maybe a malicious proposer could try to use the "other"enum to propose an add or remove owner whith only the normalnumconfirmation required.
-        require(_newOwner != address(0), "Invalid owner");
+        Transaction storage transaction = transactions[_txIndex];
+        require(
+            transaction.numConfirmations >= numImportantDecisionConfirmations,
+            "numImportantDecisionConfirmations not used"
+        );
+
         require(!isOwner[_newOwner], "Owner already exists");
 
         // Clear pending transactions before adding the new owner
@@ -401,7 +403,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         isOwner[_newOwner] = true;
         owners.push(_newOwner);
 
-        updateConfirmationsRequired(); // is this voulnerable to a reentrnacy attack?
+        updateConfirmationsRequired(); // !!! is this voulnerable to a reentrnacy attack?
 
         emit OwnerAdded(_newOwner);
     }
@@ -420,14 +422,21 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      * @param _owner The address of the owner to remove.
      */
     function removeOwnerInternal(
-        address _owner
+        address _owner,
+        uint256 _txIndex
     )
         internal
         onlyMultisigOwner
         txExists(transactions.length - 1)
         isActive(transactions.length - 1)
     {
-        //!!! also add a check that the importantNumconfirmation is used, since maybe a malicious proposer could try to use the "other"enum to propose an add or remove owner whith only the normalnumconfirmation required.
+        Transaction storage transaction = transactions[_txIndex];
+        require(
+            transaction.numConfirmations >=
+                numImportantDecisionConfirmations - 1,
+            "numImportantDecisionConfirmations not used"
+        );
+
         require(isOwner[_owner], "Not an owner");
 
         // Clear pending transactions before adding the new owner
