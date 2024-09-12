@@ -96,7 +96,7 @@ contract MultisigWalletTest is Test {
         vm.prank(owner1);
         multisigWallet.addOwner(newOwner);
 
-        for (uint i = 0; i < (owners.length * 2 + 2) / 3; i++) {
+        for (uint i = 0; i < (owners.length * 2 + 2) / 3 - 1; i++) {
             vm.expectEmit(true, true, false, true);
             emit ConfirmTransaction(owners[i], 0);
             vm.prank(owners[i]);
