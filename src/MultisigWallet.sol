@@ -96,8 +96,6 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
 
     address[] public owners;
     mapping(address => bool) public isOwner;
-    uint256 public numImportantDecisionConfirmations;
-    uint256 public numNormalDecisionConfirmations;
 
     struct Transaction {
         TransactionType transactionType;
@@ -150,8 +148,6 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
             isOwner[owner] = true;
             owners.push(owner);
         }
-
-        updateConfirmationsRequired();
     }
 
     /**
@@ -235,29 +231,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
 
         emit ConfirmTransaction(msg.sender, _txIndex);
 
-        //!!! when i have a working logic for the 50%+1 and 2/3 numConfirmationsRequired I should use this commented out code (tho make sure that for the case of removeOwner only owners.length -1 is required so that the to be removed owner doesnt have a veto)
-        // uint256 numConfirmationsRequired = (transaction.transactionType ==
-        //     TransactionType.AddOwner ||
-        //     transaction.transactionType == TransactionType.RemoveOwner)
-        //     ? numImportantDecisionConfirmations
-        //     : numNormalDecisionConfirmations;
-
-        uint256 numConfirmationsRequired;
-        if (transaction.transactionType == TransactionType.AddOwner) {
-            numConfirmationsRequired = numImportantDecisionConfirmations;
-        } else if (transaction.transactionType == TransactionType.RemoveOwner) {
-            if (owners.length == 2) {
-                numConfirmationsRequired = numImportantDecisionConfirmations;
-            } else {
-                numConfirmationsRequired =
-                    numImportantDecisionConfirmations -
-                    1;
-            }
-        } else {
-            numConfirmationsRequired = numNormalDecisionConfirmations;
-        }
-
-        if (transaction.numConfirmations >= numConfirmationsRequired) {
+        if (hasEnoughConfirmations(_txIndex)) {
             executeTransaction(_txIndex);
         }
     }
@@ -277,32 +251,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
     {
         Transaction storage transaction = transactions[_txIndex];
 
-        //!!! when i have a working logic for the 50%+1 and 2/3 numConfirmationsRequired I should use this commented out code (tho make sure that for the case of removeOwner only owners.length -1 is required so that the to be removed owner doesnt have a veto)
-        // uint256 numConfirmationsRequired = (transaction.transactionType ==
-        //     TransactionType.AddOwner ||
-        //     transaction.transactionType == TransactionType.RemoveOwner)
-        //     ? numImportantDecisionConfirmations
-        //     : numNormalDecisionConfirmations;
-
-        uint256 numConfirmationsRequired;
-        if (transaction.transactionType == TransactionType.AddOwner) {
-            numConfirmationsRequired = numImportantDecisionConfirmations;
-        } else if (transaction.transactionType == TransactionType.RemoveOwner) {
-            if (owners.length == 2) {
-                numConfirmationsRequired = numImportantDecisionConfirmations;
-            } else {
-                numConfirmationsRequired =
-                    numImportantDecisionConfirmations -
-                    1;
-            }
-        } else {
-            numConfirmationsRequired = numNormalDecisionConfirmations;
-        }
-
-        require(
-            transaction.numConfirmations >= numConfirmationsRequired,
-            "Not enough Confirmations"
-        );
+        require(hasEnoughConfirmations(_txIndex), "Not enough confirmations");
 
         if (transaction.transactionType == TransactionType.AddOwner) {
             addOwnerInternal(transaction.to, _txIndex);
@@ -391,8 +340,8 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
     {
         Transaction storage transaction = transactions[_txIndex];
         require(
-            transaction.numConfirmations >= numImportantDecisionConfirmations,
-            "numImportantDecisionConfirmations not used"
+            transaction.numConfirmations * 10000 >= owners.length * 6667,
+            "Not enough confirmations"
         );
 
         require(!isOwner[_newOwner], "Owner already exists");
@@ -402,8 +351,6 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
 
         isOwner[_newOwner] = true;
         owners.push(_newOwner);
-
-        updateConfirmationsRequired(); // !!! is this voulnerable to a reentrnacy attack?
 
         emit OwnerAdded(_newOwner);
     }
@@ -432,9 +379,8 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
     {
         Transaction storage transaction = transactions[_txIndex];
         require(
-            transaction.numConfirmations >=
-                numImportantDecisionConfirmations - 1,
-            "numImportantDecisionConfirmations not used"
+            transaction.numConfirmations * 10000 >= owners.length * 6667,
+            "Not enough confirmations"
         );
 
         require(isOwner[_owner], "Not an owner");
@@ -450,8 +396,6 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
                 break;
             }
         }
-
-        updateConfirmationsRequired();
 
         emit OwnerRemoved(_owner);
     }
@@ -533,6 +477,23 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         emit DeactivatedMyPendingTransaction(_txIndex, msg.sender);
     }
 
+    function hasEnoughConfirmations(
+        uint256 _txIndex
+    ) public view returns (bool) {
+        Transaction storage transaction = transactions[_txIndex];
+
+        if (
+            transaction.transactionType == TransactionType.AddOwner ||
+            transaction.transactionType == TransactionType.RemoveOwner
+        ) {
+            // Important decisions require 2/3 or more confirmations
+            return transaction.numConfirmations * 10000 >= owners.length * 6667;
+        } else {
+            // Normal decisions require more than 50% confirmations
+            return transaction.numConfirmations * 10000 > owners.length * 5000;
+        }
+    }
+
     function decodeTransactionData(
         bytes memory data
     ) internal pure returns (address to, uint256 amountOrTokenId) {
@@ -575,27 +536,6 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         } else {
             return (address(0), 0);
         }
-    }
-
-    function updateConfirmationsRequired() internal {
-        uint256 ownerCount = owners.length;
-        // numNormalDecisionConfirmations = (ownerCount + 1) / 2; // !!! these don't really work so i am using a simple approach for now
-        // numImportantDecisionConfirmations = (2 * ownerCount + 2) / 3; // !!! these don't really work so i am using a simple approach for now
-        if (ownerCount > 2) {
-            numNormalDecisionConfirmations = ownerCount - 1;
-            numImportantDecisionConfirmations = ownerCount;
-        } else {
-            numNormalDecisionConfirmations = ownerCount;
-            numImportantDecisionConfirmations = ownerCount;
-        }
-        require(
-            ownerCount >= numNormalDecisionConfirmations,
-            "numNormalDecisionConfirmations higher then owners"
-        );
-        require(
-            ownerCount >= numImportantDecisionConfirmations,
-            "numImportantDecisionConfirmations higher then owners"
-        );
     }
 
     // IERC721Receiver implementation
