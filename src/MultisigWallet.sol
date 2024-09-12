@@ -385,6 +385,8 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
 
         require(isOwner[_owner], "Not an owner");
 
+        require(owners.length > 1, "Cannot remove the last owner");
+
         // Clear pending transactions before adding the new owner
         deactivatePendingTransactions();
 
