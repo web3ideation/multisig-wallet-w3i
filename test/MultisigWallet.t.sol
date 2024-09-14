@@ -312,7 +312,12 @@ contract MultisigWalletTest is Test {
             owner1
         );
         vm.prank(owner1);
-        multisigWallet.transferERC721(address(erc721Token), recipient, tokenId);
+        multisigWallet.transferERC721(
+            address(erc721Token),
+            address(multisigWallet),
+            recipient,
+            tokenId
+        );
 
         for (uint i = 0; i < owners.length / 2; i++) {
             vm.expectEmit(true, true, false, true);

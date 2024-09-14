@@ -261,7 +261,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
             (bool success, ) = transaction.to.call{value: transaction.value}(
                 transaction.data
             );
-            require(success, "Transaction failed"); // !!! if the transaction failed, will the transaction.executed still be true?
+            require(success, "Transaction failed");
         }
         transaction.isActive = false;
 
@@ -334,12 +334,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
     function addOwnerInternal(
         address _newOwner,
         uint256 _txIndex
-    )
-        internal
-        onlyMultisigOwner
-        txExists(transactions.length - 1) // !!! why is it -1 here? isnt it risky to use the transactions.length since in the meantime there could have been another proposal?
-        isActive(transactions.length - 1)
-    {
+    ) internal onlyMultisigOwner txExists(_txIndex) isActive(_txIndex) {
         Transaction storage transaction = transactions[_txIndex];
         require(
             transaction.numConfirmations * 10000 >= owners.length * 6667,
@@ -373,12 +368,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
     function removeOwnerInternal(
         address _owner,
         uint256 _txIndex
-    )
-        internal
-        onlyMultisigOwner
-        txExists(transactions.length - 1) // !!! why is it -1 here? isnt it risky to use the transactions.length since in the meantime there could have been another proposal?
-        isActive(transactions.length - 1)
-    {
+    ) internal onlyMultisigOwner txExists(_txIndex) isActive(_txIndex) {
         Transaction storage transaction = transactions[_txIndex];
         require(
             transaction.numConfirmations * 10000 >= owners.length * 6667,
@@ -430,7 +420,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         // Encode the transferFrom data
         bytes memory data = abi.encodeWithSelector(
             token.transferFrom.selector,
-            from, // !!! from would obviously be this address, right?? so dont make it a variable
+            from,
             to,
             amount
         );
@@ -446,12 +436,13 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      */
     function transferERC721(
         address _tokenAddress,
+        address _from,
         address _to,
         uint256 _tokenId
     ) public onlyMultisigOwner {
         bytes memory data = abi.encodeWithSignature(
             "safeTransferFrom(address,address,uint256)",
-            address(this),
+            _from,
             _to,
             _tokenId
         );
@@ -459,9 +450,15 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
     }
 
     function deactivatePendingTransactions() internal {
-        for (uint256 i = 0; i < transactions.length; i++) {
-            if (transactions[i].isActive) {
-                transactions[i].isActive = false;
+        uint256 length = transactions.length;
+        for (uint256 i = 0; i < length; i++) {
+            // Access the transaction once per iteration
+            Transaction storage txn = transactions[i];
+            // Read isActive into a memory variable
+            bool _isActive = txn.isActive;
+            // Only update storage if isActive is true
+            if (_isActive) {
+                txn.isActive = false;
             }
         }
         emit PendingTransactionsDeactivated();

@@ -58,14 +58,18 @@ adapt testscript to the new voting mechanism✅
 Reentrancy Guard: Use OpenZeppelin's ReentrancyGuard modifier for public and external functions to protect against reentrancy attacks. You already inherit from ReentrancyGuard, so applying its modifier to susceptible functions is advisable.
 -> bei addOwnerInternal gibts einen fehler wenn ich den reentrancy guard nutze...✅
 
-➡️ cGPT meint confirmTransaction sollte auch einen reentrancy guard haben. Mit cGPT die implementation machen da ich mit Claude das problem habe, dass dann der executeTransaction call nicht geht. vlt sollte ich das automatische executeTransaction auch raus lassen wenn das wirklich nicht mit nonReentrant geht...
+cGPT meint confirmTransaction sollte auch einen reentrancy guard haben. Mit cGPT die implementation machen da ich mit Claude das problem habe, dass dann der executeTransaction call nicht geht. vlt sollte ich das automatische executeTransaction auch raus lassen wenn das wirklich nicht mit nonReentrant geht... -> ne doch nicht weil execute transaction eh erst aufgerufen wird, wenn genug confirmations da sind
 
-Gas limits: Ensure that loops in your contract (like in deactivatePendingTransactions) can't cause out-of-gas errors with a large number of transactions.
+Gas limits: Ensure that loops in your contract (like in deactivatePendingTransactions) can't cause out-of-gas errors with a large number of transactions. ✅
+
+➡️ // !!!
 
 spießer proposals
 transaction index should start with 1 instead of 0
 for the transfer erc20 and 721 functions of the multisig wallet the from is obviously this.address, so it shouldnt be needed in the functions arguments
 Add that with submitting there will automatically the confirm function be called (is that necessary?)
+
+ok this is my contract now ... please let me know where i can safe gas significantly
 
 check if the 2/3 and 50%+1 really works for 2 3 4 5 6 7 8 99 999 owners
 
