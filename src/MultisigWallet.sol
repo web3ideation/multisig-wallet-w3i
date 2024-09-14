@@ -226,8 +226,8 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         notConfirmed(_txIndex)
     {
         Transaction storage transaction = transactions[_txIndex];
-        transaction.numConfirmations += 1;
         isConfirmed[_txIndex][msg.sender] = true;
+        transaction.numConfirmations += 1;
 
         emit ConfirmTransaction(msg.sender, _txIndex);
 
@@ -253,6 +253,8 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
 
         require(hasEnoughConfirmations(_txIndex), "Not enough confirmations");
 
+        transaction.isActive = false;
+
         if (transaction.transactionType == TransactionType.AddOwner) {
             addOwnerInternal(transaction.to, _txIndex);
         } else if (transaction.transactionType == TransactionType.RemoveOwner) {
@@ -261,10 +263,8 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
             (bool success, ) = transaction.to.call{value: transaction.value}(
                 transaction.data
             );
-            require(success, "Transaction failed"); // if the transaction failed, will the transaction.executed still be true?
+            require(success, "Transaction failed"); // !!! if the transaction failed, will the transaction.executed still be true?
         }
-
-        transaction.isActive = false;
 
         address recipient = transaction.to;
         address tokenAddress = address(0);
@@ -301,9 +301,18 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      */
     function revokeConfirmation(
         uint256 _txIndex
-    ) public onlyMultisigOwner txExists(_txIndex) isActive(_txIndex) {
+    )
+        public
+        onlyMultisigOwner
+        txExists(_txIndex)
+        isActive(_txIndex)
+        nonReentrant
+    {
         Transaction storage transaction = transactions[_txIndex];
-        require(isConfirmed[_txIndex][msg.sender], "Transaction not confirmed");
+        require(
+            isConfirmed[_txIndex][msg.sender],
+            "Transaction has not been confirmed"
+        );
 
         transaction.numConfirmations -= 1;
         isConfirmed[_txIndex][msg.sender] = false;
@@ -335,8 +344,9 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
     )
         internal
         onlyMultisigOwner
-        txExists(transactions.length - 1)
+        txExists(transactions.length - 1) // !!! why is it -1 here? isnt it risky to use the transactions.length since in the meantime there could have been another proposal?
         isActive(transactions.length - 1)
+        nonReentrant
     {
         Transaction storage transaction = transactions[_txIndex];
         require(
@@ -374,8 +384,9 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
     )
         internal
         onlyMultisigOwner
-        txExists(transactions.length - 1)
+        txExists(transactions.length - 1) // !!! why is it -1 here? isnt it risky to use the transactions.length since in the meantime there could have been another proposal?
         isActive(transactions.length - 1)
+        nonReentrant
     {
         Transaction storage transaction = transactions[_txIndex];
         require(
@@ -428,7 +439,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         // Encode the transferFrom data
         bytes memory data = abi.encodeWithSelector(
             token.transferFrom.selector,
-            from,
+            from, // !!! from would obviously be this address, right?? so dont make it a variable
             to,
             amount
         );
@@ -467,10 +478,10 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
 
     function deactivateMyPendingTransaction(
         uint _txIndex
-    ) public txExists(_txIndex) isActive(_txIndex) {
+    ) public txExists(_txIndex) isActive(_txIndex) onlyMultisigOwner {
         require(
             transactions[_txIndex].owner == msg.sender,
-            "Only the owner can clear their transaction"
+            "Only the owner can clear their submitted transaction"
         );
 
         // Deactivate Transaction
@@ -508,7 +519,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         assembly {
             selector := mload(add(data, 32))
         }
-        // since we don't need the isERC721 anymore because we have the enum, check what is exactly necessary in this function for extracting the info of token address and amount/id
+        // !!! since we don't need the isERC721 anymore because we have the enum, check what is exactly necessary in this function for extracting the info of token address and amount/id
         if (selector == erc20Selector) {
             require(
                 data.length == 68,

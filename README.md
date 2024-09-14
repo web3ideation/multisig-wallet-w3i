@@ -53,9 +53,9 @@ also implement the safeERC20 thing from open zepplin ✅
 
 Num confirmations; wenn stimme1 + stimme2 + ... > Anzahl User \*0,5+1 dann execute ✅
 
-➡️ adapt testscript to the new voting mechanism
+adapt testscript to the new voting mechanism✅
 
-Reentrancy Guard: Use OpenZeppelin's ReentrancyGuard modifier for public and external functions to protect against reentrancy attacks. You already inherit from ReentrancyGuard, so applying its modifier to susceptible functions is advisable.
+➡️Reentrancy Guard: Use OpenZeppelin's ReentrancyGuard modifier for public and external functions to protect against reentrancy attacks. You already inherit from ReentrancyGuard, so applying its modifier to susceptible functions is advisable.
 -> bei addOwnerInternal gibts einen fehler wenn ich den reentrancy guard nutze...
 
 Gas limits: Ensure that loops in your contract (like in deactivatePendingTransactions) can't cause out-of-gas errors with a large number of transactions.
