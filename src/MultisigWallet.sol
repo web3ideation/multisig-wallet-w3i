@@ -211,6 +211,8 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
             _amountOrTokenId,
             msg.sender
         );
+
+        confirmTransaction(txIndex);
     }
 
     /**

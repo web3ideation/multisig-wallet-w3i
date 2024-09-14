@@ -96,7 +96,7 @@ contract MultisigWalletTest is Test {
         vm.prank(owner1);
         multisigWallet.addOwner(newOwner);
 
-        for (uint i = 0; i < (owners.length * 2 + 2) / 3 - 1; i++) {
+        for (uint i = 1; i < (owners.length * 2 + 2) / 3 - 1; i++) {
             vm.expectEmit(true, true, false, true);
             emit ConfirmTransaction(owners[i], 0);
             vm.prank(owners[i]);
@@ -143,7 +143,7 @@ contract MultisigWalletTest is Test {
         vm.prank(owner1);
         multisigWallet.removeOwner(owner5);
 
-        for (uint i = 0; i * 1000 < (owners.length * 1000 * 2) / 3; i++) {
+        for (uint i = 1; i * 1000 < (owners.length * 1000 * 2) / 3; i++) {
             vm.expectEmit(true, true, false, true);
             emit ConfirmTransaction(owners[i], 0);
 
@@ -208,7 +208,7 @@ contract MultisigWalletTest is Test {
             ""
         );
 
-        for (uint i = 0; i < owners.length / 2; i++) {
+        for (uint i = 1; i < owners.length / 2; i++) {
             vm.expectEmit(true, true, false, true);
             emit ConfirmTransaction(owners[i], 0);
             vm.prank(owners[i]);
@@ -259,7 +259,7 @@ contract MultisigWalletTest is Test {
             amount
         );
 
-        for (uint i = 0; i < owners.length / 2; i++) {
+        for (uint i = 1; i < owners.length / 2; i++) {
             vm.expectEmit(true, true, false, true);
             emit ConfirmTransaction(owners[i], 0);
             vm.prank(owners[i]);
@@ -319,7 +319,7 @@ contract MultisigWalletTest is Test {
             tokenId
         );
 
-        for (uint i = 0; i < owners.length / 2; i++) {
+        for (uint i = 1; i < owners.length / 2; i++) {
             vm.expectEmit(true, true, false, true);
             emit ConfirmTransaction(owners[i], 0);
             vm.prank(owners[i]);
@@ -370,7 +370,7 @@ contract MultisigWalletTest is Test {
             ""
         );
 
-        for (uint i = 0; i < owners.length / 2; i++) {
+        for (uint i = 1; i < owners.length / 2; i++) {
             vm.expectEmit(true, true, false, true);
             emit ConfirmTransaction(owners[i], 0);
             vm.prank(owners[i]);
@@ -448,7 +448,7 @@ contract MultisigWalletTest is Test {
             data
         );
 
-        for (uint i = 0; i < owners.length / 2; i++) {
+        for (uint i = 1; i < owners.length / 2; i++) {
             vm.expectEmit(true, true, false, true);
             emit ConfirmTransaction(owners[i], 0);
             vm.prank(owners[i]);
@@ -492,7 +492,7 @@ contract MultisigWalletTest is Test {
         vm.prank(owner1);
         multisigWallet.sendETH(recipient, amount);
 
-        for (uint i = 0; i < owners.length / 2; i++) {
+        for (uint i = 1; i < owners.length / 2; i++) {
             vm.expectEmit(true, true, false, true);
             emit ConfirmTransaction(owners[i], 0);
             vm.prank(owners[i]);
@@ -523,7 +523,7 @@ contract MultisigWalletTest is Test {
         vm.prank(owner1);
         multisigWallet.addOwner(address(0x123));
 
-        for (uint i = 0; i < (owners.length * 2 + 2) / 3; i++) {
+        for (uint i = 1; i < (owners.length * 2 + 2) / 3; i++) {
             vm.prank(owners[i]);
             multisigWallet.confirmTransaction(0);
         }
@@ -580,9 +580,6 @@ contract MultisigWalletTest is Test {
     function testDoubleConfirmation() public {
         vm.prank(owner1);
         multisigWallet.sendETH(owner2, 1 ether);
-
-        vm.prank(owner1);
-        multisigWallet.confirmTransaction(0);
 
         vm.expectRevert("Transaction already confirmed");
         vm.prank(owner1);
