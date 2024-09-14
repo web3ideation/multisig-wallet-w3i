@@ -55,8 +55,10 @@ Num confirmations; wenn stimme1 + stimme2 + ... > Anzahl User \*0,5+1 dann execu
 
 adapt testscript to the new voting mechanism✅
 
-➡️Reentrancy Guard: Use OpenZeppelin's ReentrancyGuard modifier for public and external functions to protect against reentrancy attacks. You already inherit from ReentrancyGuard, so applying its modifier to susceptible functions is advisable.
--> bei addOwnerInternal gibts einen fehler wenn ich den reentrancy guard nutze...
+Reentrancy Guard: Use OpenZeppelin's ReentrancyGuard modifier for public and external functions to protect against reentrancy attacks. You already inherit from ReentrancyGuard, so applying its modifier to susceptible functions is advisable.
+-> bei addOwnerInternal gibts einen fehler wenn ich den reentrancy guard nutze...✅
+
+➡️ cGPT meint confirmTransaction sollte auch einen reentrancy guard haben. Mit cGPT die implementation machen da ich mit Claude das problem habe, dass dann der executeTransaction call nicht geht. vlt sollte ich das automatische executeTransaction auch raus lassen wenn das wirklich nicht mit nonReentrant geht...
 
 Gas limits: Ensure that loops in your contract (like in deactivatePendingTransactions) can't cause out-of-gas errors with a large number of transactions.
 

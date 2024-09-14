@@ -5,11 +5,11 @@
 // See the LICENSE file for more details.
 pragma solidity ^0.8.7;
 
-import "lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
-import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721.sol";
-import "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol";
+import "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import "openzeppelin-contracts/contracts/token/ERC721/IERC721.sol";
+import "openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol";
 
 /**
  * @title MultisigWallet
@@ -253,8 +253,6 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
 
         require(hasEnoughConfirmations(_txIndex), "Not enough confirmations");
 
-        transaction.isActive = false;
-
         if (transaction.transactionType == TransactionType.AddOwner) {
             addOwnerInternal(transaction.to, _txIndex);
         } else if (transaction.transactionType == TransactionType.RemoveOwner) {
@@ -265,6 +263,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
             );
             require(success, "Transaction failed"); // !!! if the transaction failed, will the transaction.executed still be true?
         }
+        transaction.isActive = false;
 
         address recipient = transaction.to;
         address tokenAddress = address(0);
@@ -301,13 +300,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      */
     function revokeConfirmation(
         uint256 _txIndex
-    )
-        public
-        onlyMultisigOwner
-        txExists(_txIndex)
-        isActive(_txIndex)
-        nonReentrant
-    {
+    ) public onlyMultisigOwner txExists(_txIndex) isActive(_txIndex) {
         Transaction storage transaction = transactions[_txIndex];
         require(
             isConfirmed[_txIndex][msg.sender],
@@ -346,7 +339,6 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         onlyMultisigOwner
         txExists(transactions.length - 1) // !!! why is it -1 here? isnt it risky to use the transactions.length since in the meantime there could have been another proposal?
         isActive(transactions.length - 1)
-        nonReentrant
     {
         Transaction storage transaction = transactions[_txIndex];
         require(
@@ -386,7 +378,6 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         onlyMultisigOwner
         txExists(transactions.length - 1) // !!! why is it -1 here? isnt it risky to use the transactions.length since in the meantime there could have been another proposal?
         isActive(transactions.length - 1)
-        nonReentrant
     {
         Transaction storage transaction = transactions[_txIndex];
         require(
