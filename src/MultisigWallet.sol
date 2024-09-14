@@ -193,6 +193,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         ) {
             // Decode the data to extract the token address and amount / tokenId
             (address to, uint256 amountOrTokenId) = decodeTransactionData(
+                _transactionType,
                 _data
             );
             recipient = to;
@@ -275,6 +276,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         ) {
             // Decode the data to extract the token address and amount / tokenId
             (address to, uint256 amountOrTokenId) = decodeTransactionData(
+                transaction.transactionType,
                 transaction.data
             );
             recipient = to;
@@ -496,44 +498,39 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
     }
 
     function decodeTransactionData(
+        TransactionType transactionType,
         bytes memory data
     ) internal pure returns (address to, uint256 amountOrTokenId) {
-        bytes4 erc20Selector = bytes4(keccak256("transfer(address,uint256)"));
-        bytes4 erc721Selector = bytes4(
-            keccak256("safeTransferFrom(address,address,uint256)")
-        );
-
-        bytes4 selector;
-        assembly {
-            selector := mload(add(data, 32))
-        }
-        // !!! since we don't need the isERC721 anymore because we have the enum, check what is exactly necessary in this function for extracting the info of token address and amount/id
-        if (selector == erc20Selector) {
+        if (transactionType == TransactionType.ERC20) {
+            // ERC20 transfer(address recipient, uint256 amount)
             require(
                 data.length == 68,
                 "Invalid data length for ERC20 transfer"
             );
-            address _to;
-            uint256 _amountOrTokenId;
+
+            // Use assembly to extract parameters directly
             assembly {
-                _to := mload(add(data, 36))
-                _amountOrTokenId := mload(add(data, 68))
+                // Skip the first 36 bytes (32 bytes for length, 4 bytes for selector)
+                let paramsOffset := add(data, 36)
+                to := mload(paramsOffset) // Load address (recipient)
+                amountOrTokenId := mload(add(paramsOffset, 32)) // Load uint256 (amount)
             }
-            return (_to, _amountOrTokenId);
-        } else if (selector == erc721Selector) {
+            return (to, amountOrTokenId);
+        } else if (transactionType == TransactionType.ERC721) {
+            // ERC721 safeTransferFrom(address from, address to, uint256 tokenId)
             require(
                 data.length == 100,
                 "Invalid data length for ERC721 transfer"
             );
-            address _from;
-            address _to;
-            uint256 tokenId;
+
+            // Use assembly to extract parameters directly
             assembly {
-                _from := mload(add(data, 36))
-                _to := mload(add(data, 68))
-                tokenId := mload(add(data, 100))
+                let paramsOffset := add(data, 36)
+                // Skipping 'from' address (we don't need it for the return value)
+                to := mload(add(paramsOffset, 32)) // Load address (to)
+                amountOrTokenId := mload(add(paramsOffset, 64)) // Load uint256 (tokenId)
             }
-            return (_to, tokenId);
+            return (to, amountOrTokenId);
         } else {
             return (address(0), 0);
         }
