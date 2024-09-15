@@ -71,9 +71,9 @@ Add that with submitting there will automatically the confirm function be called
 
 ➡️ ok this is my contract now ... please let me know where i can safe gas significantly
 
-check if the 2/3 and 50%+1 really works for 2 3 4 5 6 7 8 99 999 owners
+funktion nochmal mit testscript bestätigen
 
--funktion nochmal mit testscript bestätigen
+check if the 2/3 and 50%+1 really works for 2 3 4 5 6 7 8 99 999 owners
 
 Error Handling: Add more descriptive error messages for edge cases, such as invalid data formats or failed transactions.
 

@@ -94,18 +94,18 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         Other
     }
 
-    address[] public owners;
-    mapping(address => bool) public isOwner;
-
     struct Transaction {
         TransactionType transactionType;
+        bool isActive;
+        uint64 numConfirmations;
+        address owner;
         address to;
         uint256 value;
         bytes data;
-        bool isActive;
-        uint256 numConfirmations;
-        address owner;
     }
+
+    address[] public owners;
+    mapping(address => bool) public isOwner;
 
     mapping(uint256 => mapping(address => bool)) public isConfirmed;
     Transaction[] public transactions;
@@ -230,11 +230,14 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
     {
         Transaction storage transaction = transactions[_txIndex];
         isConfirmed[_txIndex][msg.sender] = true;
-        transaction.numConfirmations += 1;
+        uint64 newNumConfirmations = transaction.numConfirmations + 1; // doing that to safe gas
+        transaction.numConfirmations = newNumConfirmations;
+
+        TransactionType txType = transaction.transactionType; // doing that to safe gas in the hasEnoughConfirmations function
 
         emit ConfirmTransaction(msg.sender, _txIndex);
 
-        if (hasEnoughConfirmations(_txIndex)) {
+        if (hasEnoughConfirmations(newNumConfirmations, txType)) {
             executeTransaction(_txIndex);
         }
     }
@@ -245,55 +248,57 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      */
     function executeTransaction(
         uint256 _txIndex
-    )
-        internal
-        onlyMultisigOwner
-        txExists(_txIndex)
-        isActive(_txIndex)
-        nonReentrant
-    {
+    ) internal txExists(_txIndex) isActive(_txIndex) nonReentrant {
         Transaction storage transaction = transactions[_txIndex];
 
-        require(hasEnoughConfirmations(_txIndex), "Not enough confirmations");
+        uint64 numConfirmations = transaction.numConfirmations;
+        TransactionType txType = transaction.transactionType;
 
-        if (transaction.transactionType == TransactionType.AddOwner) {
-            addOwnerInternal(transaction.to, _txIndex);
-        } else if (transaction.transactionType == TransactionType.RemoveOwner) {
-            removeOwnerInternal(transaction.to, _txIndex);
+        require(
+            hasEnoughConfirmations(numConfirmations, txType),
+            "Not enough confirmations"
+        );
+
+        address to = transaction.to;
+        uint256 value = transaction.value;
+        bytes memory data = transaction.data;
+
+        if (txType == TransactionType.AddOwner) {
+            addOwnerInternal(to, _txIndex);
+        } else if (txType == TransactionType.RemoveOwner) {
+            removeOwnerInternal(to, _txIndex);
         } else {
-            (bool success, ) = transaction.to.call{value: transaction.value}(
-                transaction.data
-            );
+            (bool success, ) = to.call{value: value}(data);
             require(success, "Transaction failed");
         }
+
         transaction.isActive = false;
 
-        address recipient = transaction.to;
+        address recipient = to;
         address tokenAddress = address(0);
-        uint256 _amountOrTokenId = 0;
+        uint256 amountOrTokenId = 0;
 
         if (
-            transaction.transactionType == TransactionType.ERC20 ||
-            transaction.transactionType == TransactionType.ERC721
+            txType == TransactionType.ERC20 || txType == TransactionType.ERC721
         ) {
             // Decode the data to extract the token address and amount / tokenId
-            (address to, uint256 amountOrTokenId) = decodeTransactionData(
-                transaction.transactionType,
+            (address _to, uint256 _amountOrTokenId) = decodeTransactionData(
+                txType,
                 transaction.data
             );
-            recipient = to;
-            tokenAddress = transaction.to;
-            _amountOrTokenId = amountOrTokenId;
+            recipient = _to;
+            tokenAddress = to;
+            amountOrTokenId = _amountOrTokenId;
         }
 
         emit ExecuteTransaction(
-            transaction.transactionType,
+            txType,
             _txIndex,
             recipient,
-            transaction.value,
-            transaction.data,
+            value,
+            data,
             tokenAddress,
-            _amountOrTokenId,
+            amountOrTokenId,
             msg.sender
         );
     }
@@ -455,14 +460,13 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
 
     function deactivatePendingTransactions() internal {
         uint256 length = transactions.length;
-        for (uint256 i = 0; i < length; i++) {
-            // Access the transaction once per iteration
+        for (uint256 i = 0; i < length; ) {
             Transaction storage txn = transactions[i];
-            // Read isActive into a memory variable
-            bool _isActive = txn.isActive;
-            // Only update storage if isActive is true
-            if (_isActive) {
+            if (txn.isActive) {
                 txn.isActive = false;
+            }
+            unchecked {
+                ++i;
             }
         }
         emit PendingTransactionsDeactivated();
@@ -483,19 +487,18 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
     }
 
     function hasEnoughConfirmations(
-        uint256 _txIndex
-    ) public view returns (bool) {
-        Transaction storage transaction = transactions[_txIndex];
-
+        uint64 numConfirmations,
+        TransactionType transactionType
+    ) internal view returns (bool) {
         if (
-            transaction.transactionType == TransactionType.AddOwner ||
-            transaction.transactionType == TransactionType.RemoveOwner
+            transactionType == TransactionType.AddOwner ||
+            transactionType == TransactionType.RemoveOwner
         ) {
             // Important decisions require 2/3 or more confirmations
-            return transaction.numConfirmations * 10000 >= owners.length * 6667;
+            return numConfirmations * 10000 >= owners.length * 6667;
         } else {
             // Normal decisions require more than 50% confirmations
-            return transaction.numConfirmations * 10000 > owners.length * 5000;
+            return numConfirmations * 10000 > owners.length * 5000;
         }
     }
 
