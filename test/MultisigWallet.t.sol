@@ -1319,6 +1319,116 @@ contract MultisigWalletTest is Test {
             "Wallet ERC20 balance should decrease by transfer amount"
         );
     }
+
+    function testFuzzERC721TransferWithDynamicConfirmations(
+        uint256 numOwnersInput
+    ) public {
+        // **Step 1: Bound the Number of Owners**
+        // Ensure the number of owners is between 3 and 120 to maintain meaningful >50% confirmation logic
+        uint256 numOwners = bound(numOwnersInput, 3, 120);
+
+        // **Step 2: Calculate Required Confirmations**
+        // For >50%, requiredConfirmations = floor(numOwners / 2) + 1
+        uint256 requiredConfirmations = (numOwners / 2) + 1;
+
+        // **Step 3: Initialize Dynamic Owners**
+        address[] memory dynamicOwners = new address[](numOwners);
+        for (uint256 i = 0; i < numOwners; i++) {
+            dynamicOwners[i] = address(uint160(i + 1)); // Assign unique addresses
+        }
+
+        // **Step 4: Deploy MultisigWallet and ERC721 Token**
+        multisigWallet = new MultisigWallet(dynamicOwners);
+        SimpleERC721 dynamicERC721 = new SimpleERC721();
+
+        uint256 tokenId = 1; // Define a tokenId to transfer
+
+        // **Step 5: Mint ERC721 Token to the MultisigWallet**
+        dynamicERC721.mint(address(multisigWallet), tokenId);
+        assertEq(
+            dynamicERC721.ownerOf(tokenId),
+            address(multisigWallet),
+            "ERC721 token not minted to wallet"
+        );
+
+        // **Step 6: Define Recipient and Token ID**
+        address recipient = address(0xABC); // Arbitrary recipient address
+
+        // **Step 7: Prepare the ERC721 Transfer Data**
+        bytes memory transferData = abi.encodeWithSignature(
+            "safeTransferFrom(address,address,uint256)",
+            address(multisigWallet),
+            recipient,
+            tokenId
+        );
+
+        // **Step 8: Submit the ERC721 Transfer Transaction**
+        vm.expectEmit(true, true, true, true);
+        emit SubmitTransaction(
+            MultisigWallet.TransactionType.ERC721,
+            0, // txIndex will be 0 as it's the first transaction
+            recipient,
+            0, // value is 0 for ERC721 transfers
+            transferData,
+            address(dynamicERC721),
+            tokenId,
+            dynamicOwners[0] // Initiator
+        );
+
+        // **Step 9: Submit the Transaction via transferERC721**
+        vm.prank(dynamicOwners[0]); // Initiate from the first owner
+        multisigWallet.transferERC721(
+            address(dynamicERC721),
+            address(multisigWallet),
+            recipient,
+            tokenId
+        );
+
+        // **Step 10: Confirm the Transaction with Required Confirmations - 1**
+        // Since the first confirmation is already done by the submitter (confirmTransaction is called inside submitTransaction)
+        // Hence, we need to confirm with (requiredConfirmations - 1) additional owners
+
+        for (uint256 i = 1; i < requiredConfirmations - 1; i++) {
+            vm.expectEmit(true, true, false, true);
+            emit ConfirmTransaction(dynamicOwners[i], 0);
+            vm.prank(dynamicOwners[i]);
+            multisigWallet.confirmTransaction(0);
+        }
+
+        // **Step 11: Final Confirmation to Trigger Execution**
+        // The last confirmation should trigger the execution
+        vm.expectEmit(true, false, false, true);
+        emit ExecuteTransaction(
+            MultisigWallet.TransactionType.ERC721,
+            0, // txIndex
+            recipient,
+            0, // value is 0 for ERC721 transfers
+            transferData,
+            address(dynamicERC721),
+            tokenId,
+            dynamicOwners[requiredConfirmations - 1] // Executor
+        );
+
+        vm.prank(dynamicOwners[requiredConfirmations - 1]); // Final confirmer
+        multisigWallet.confirmTransaction(0);
+
+        // **Step 12: Assertions to Ensure Correct Execution**
+        // Verify that the recipient now owns the ERC721 token
+        assertEq(
+            dynamicERC721.ownerOf(tokenId),
+            recipient,
+            "ERC721 token was not transferred to the recipient"
+        );
+
+        // Verify that the Multisig Wallet no longer owns the token
+        assertEq(
+            dynamicERC721.ownerOf(tokenId),
+            recipient,
+            "MultisigWallet still owns the ERC721 token after transfer"
+        );
+
+        // No further confirmations should be attempted after execution
+    }
 }
 
 // Simple counter contract for testing "Other" transaction type
