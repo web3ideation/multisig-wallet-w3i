@@ -11,6 +11,8 @@ contract MultisigWalletTest is Test {
     SimpleERC20 public erc20Token;
     SimpleERC721 public erc721Token;
     address[] public owners;
+    address[] public twoOwners;
+    address[] public singleOwner;
     uint256 public constant INITIAL_BALANCE = 10 ether;
     uint256 public constant ERC20_INITIAL_SUPPLY = 1000000 * 10 ** 18;
 
@@ -47,8 +49,12 @@ contract MultisigWalletTest is Test {
     event OwnerAdded(address indexed owner);
     event OwnerRemoved(address indexed owner);
 
+    event PendingTransactionsDeactivated();
+
     function setUp() public {
         owners = [owner1, owner2, owner3, owner4, owner5];
+        twoOwners = [owner1, owner2];
+        singleOwner = [owner1];
         multisigWallet = new MultisigWallet(owners);
         erc20Token = new SimpleERC20(ERC20_INITIAL_SUPPLY);
         erc721Token = new SimpleERC721();
@@ -736,6 +742,247 @@ contract MultisigWalletTest is Test {
         // Check if the new owner was successfully added
         assertTrue(multisigWallet.isOwner(newOwner));
         assertEq(multisigWallet.getOwnerCount(), numOwners + 1);
+    }
+
+    /// @notice Test that removing an owner with two owners requires both to confirm.
+    function testTwoOwnersMustConfirmRemoval() public {
+        // Initialize a new multisig wallet with two owners using a dynamic array
+        multisigWallet = new MultisigWallet(twoOwners);
+
+        address ownerToRemove = owner2;
+        address initiator = owner1;
+
+        // Expect the SubmitTransaction event
+        vm.expectEmit(true, true, true, true);
+        emit SubmitTransaction(
+            MultisigWallet.TransactionType.RemoveOwner,
+            0,
+            ownerToRemove,
+            0,
+            "",
+            address(0),
+            0,
+            initiator
+        );
+        vm.prank(initiator);
+        multisigWallet.removeOwner(ownerToRemove);
+
+        // At this point, the transaction has 1 confirmation (from initiator)
+
+        // Expect the ConfirmTransaction event from the second owner
+        vm.expectEmit(true, true, false, true);
+        emit ConfirmTransaction(owner2, 0);
+
+        // Expect the OwnerRemoved and ExecuteTransaction events upon confirmation
+        vm.expectEmit(true, false, false, true);
+        emit OwnerRemoved(ownerToRemove);
+        vm.expectEmit(true, true, true, true);
+        emit ExecuteTransaction(
+            MultisigWallet.TransactionType.RemoveOwner,
+            0,
+            ownerToRemove,
+            0,
+            "",
+            address(0),
+            0,
+            owner2
+        );
+
+        // Second owner confirms the transaction
+        vm.prank(owner2);
+        multisigWallet.confirmTransaction(0);
+
+        // Verify that ownerToRemove has been removed
+        assertFalse(multisigWallet.isOwner(ownerToRemove));
+        assertEq(multisigWallet.getOwnerCount(), 1);
+    }
+
+    function testRemoveOwnerWithDynamicConfirmations() public {
+        uint256 numOwners = 10;
+        uint256 requiredConfirmations = (numOwners * 2 + 2) / 3; // Ceiling of 2/3 * numOwners
+
+        // Initialize dynamic owners
+        address[] memory dynamicOwners = new address[](numOwners);
+        for (uint256 i = 0; i < numOwners; i++) {
+            dynamicOwners[i] = address(uint160(i + 1));
+        }
+
+        // Initialize a new multisig wallet with dynamic owners
+        multisigWallet = new MultisigWallet(dynamicOwners);
+
+        address ownerToRemove = dynamicOwners[numOwners - 1]; // Last owner
+        address initiator = dynamicOwners[0];
+
+        // Expect the SubmitTransaction event for RemoveOwner
+        vm.expectEmit(true, true, true, true);
+        emit SubmitTransaction(
+            MultisigWallet.TransactionType.RemoveOwner,
+            0,
+            ownerToRemove,
+            0,
+            "",
+            address(0),
+            0,
+            initiator
+        );
+        vm.prank(initiator);
+        multisigWallet.removeOwner(ownerToRemove);
+
+        // Confirm the transaction with the required number of owners minus one
+        for (uint256 i = 1; i < requiredConfirmations - 1; i++) {
+            vm.expectEmit(true, true, false, true);
+            emit ConfirmTransaction(dynamicOwners[i], 0);
+            vm.prank(dynamicOwners[i]);
+            multisigWallet.confirmTransaction(0);
+        }
+
+        // Final confirmation that triggers the execution
+        vm.expectEmit(true, true, false, true);
+        emit ConfirmTransaction(dynamicOwners[requiredConfirmations - 1], 0);
+
+        // Expect PendingTransactionsDeactivated event
+        vm.expectEmit(true, false, false, true);
+        emit PendingTransactionsDeactivated();
+
+        // Expect OwnerRemoved event
+        vm.expectEmit(true, true, true, false);
+        emit OwnerRemoved(ownerToRemove);
+
+        // Expect ExecuteTransaction event
+        vm.expectEmit(true, true, true, true);
+        emit ExecuteTransaction(
+            MultisigWallet.TransactionType.RemoveOwner,
+            0,
+            ownerToRemove,
+            0,
+            "",
+            address(0),
+            0,
+            dynamicOwners[requiredConfirmations - 1]
+        );
+
+        vm.prank(dynamicOwners[requiredConfirmations - 1]);
+        multisigWallet.confirmTransaction(0);
+
+        // Verify that the owner has been removed
+        assertFalse(multisigWallet.isOwner(ownerToRemove));
+        assertEq(multisigWallet.getOwnerCount(), numOwners - 1);
+    }
+
+    function testFuzzRemoveOwnerWithDynamicConfirmations(
+        uint256 numOwnersInput
+    ) public {
+        // Bound the number of owners between 3 and 120 to ensure meaningful tests
+        uint256 numOwners = bound(numOwnersInput, 3, 120);
+        uint256 requiredConfirmations = (numOwners * 2 + 2) / 3; // Ceiling of 2/3 * numOwners
+
+        // Initialize dynamic owners
+        address[] memory dynamicOwners = new address[](numOwners);
+        for (uint256 i = 0; i < numOwners; i++) {
+            dynamicOwners[i] = address(uint160(i + 1));
+        }
+
+        // Initialize a new multisig wallet with dynamic owners
+        multisigWallet = new MultisigWallet(dynamicOwners);
+
+        address ownerToRemove = dynamicOwners[numOwners - 1]; // Last owner
+        address initiator = dynamicOwners[0];
+
+        // Expect the SubmitTransaction event for RemoveOwner
+        vm.expectEmit(true, true, true, true);
+        emit SubmitTransaction(
+            MultisigWallet.TransactionType.RemoveOwner,
+            0,
+            ownerToRemove,
+            0,
+            "",
+            address(0),
+            0,
+            initiator
+        );
+        vm.prank(initiator);
+        multisigWallet.removeOwner(ownerToRemove);
+
+        // Confirm the transaction with the required number of owners minus one
+        for (uint256 i = 1; i < requiredConfirmations - 1; i++) {
+            vm.expectEmit(true, true, false, true);
+            emit ConfirmTransaction(dynamicOwners[i], 0);
+            vm.prank(dynamicOwners[i]);
+            multisigWallet.confirmTransaction(0);
+        }
+
+        // Final confirmation that triggers the execution
+        vm.expectEmit(true, true, false, true);
+        emit ConfirmTransaction(dynamicOwners[requiredConfirmations - 1], 0);
+
+        // Expect PendingTransactionsDeactivated event
+        vm.expectEmit(true, false, false, true);
+        emit PendingTransactionsDeactivated();
+
+        // Expect OwnerRemoved event
+        vm.expectEmit(true, true, true, false);
+        emit OwnerRemoved(ownerToRemove);
+
+        // Expect ExecuteTransaction event
+        vm.expectEmit(true, true, true, true);
+        emit ExecuteTransaction(
+            MultisigWallet.TransactionType.RemoveOwner,
+            0,
+            ownerToRemove,
+            0,
+            "",
+            address(0),
+            0,
+            dynamicOwners[requiredConfirmations - 1]
+        );
+
+        vm.prank(dynamicOwners[requiredConfirmations - 1]);
+        multisigWallet.confirmTransaction(0);
+
+        // Verify that the owner has been removed
+        assertFalse(multisigWallet.isOwner(ownerToRemove));
+        assertEq(multisigWallet.getOwnerCount(), numOwners - 1);
+    }
+
+    /// @notice Test that attempting to remove the last remaining owner fails.
+    function testRemoveLastOwner2() public {
+        // Initialize a new multisig wallet with one owner
+        multisigWallet = new MultisigWallet(singleOwner);
+
+        address ownerToRemove = owner1;
+
+        // Attempt to remove the only owner
+        vm.prank(ownerToRemove);
+        vm.expectRevert("Cannot remove the last owner");
+        multisigWallet.removeOwner(ownerToRemove);
+    }
+
+    /// @notice Test that a non-owner cannot remove an owner.
+    function testNonOwnerCannotRemoveOwner() public {
+        // Initialize a new multisig wallet with two owners
+        multisigWallet = new MultisigWallet(twoOwners);
+
+        address ownerToRemove = owner2;
+        address nonOwnerAddress = nonOwner;
+
+        // Attempt to remove an owner from a non-owner account
+        vm.prank(nonOwnerAddress);
+        vm.expectRevert("Not a multisig owner");
+        multisigWallet.removeOwner(ownerToRemove);
+    }
+
+    /// @notice Test that removing a non-existent owner reverts.
+    function testRemoveNonExistentOwner() public {
+        // Initialize a new multisig wallet with two owners
+        multisigWallet = new MultisigWallet(twoOwners);
+
+        address nonExistentOwner = owner3; // Assuming owner3 was not added
+        address initiator = owner1;
+
+        // Attempt to remove a non-existent owner
+        vm.prank(initiator);
+        vm.expectRevert("Not an owner");
+        multisigWallet.removeOwner(nonExistentOwner);
     }
 }
 

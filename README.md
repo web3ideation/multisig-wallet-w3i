@@ -73,9 +73,15 @@ ok this is my contract now ... please let me know where i can safe gas significa
 
 funktion nochmal mit testscript bestätigen ✅
 
-check if the 2/3 and 50%+1 really works for 2 3 4 5 6 7 8 99 owners ✅
+check if the 2/3 really works for 2 3 4 5 6 7 8 99 owners ✅
 
-➡️ Error Handling: Add more descriptive error messages for edge cases, such as invalid data formats or failed transactions.
+also check the remove owner function like that ✅
+
+➡️ check if the >50% really works for 2 3 4 5 6 7 8 99 owners
+
+check if a malicious owner would not be able to use the "other" enum to go aroud the 2/3 requirement when calling the add/remove owner function internally
+
+Error Handling: Add more descriptive error messages for edge cases, such as invalid data formats or failed transactions.
 
 Add licence files
 use .env for privatekey und so
