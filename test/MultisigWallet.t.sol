@@ -1211,6 +1211,114 @@ contract MultisigWalletTest is Test {
         // Transaction memory txn = multisigWallet.transactions(0);
         // assertFalse(txn.isActive, "Transaction should be inactive after execution");
     }
+
+    function testFuzzERC20TransferWithDynamicConfirmations(
+        uint256 numOwnersInput
+    ) public {
+        // **Step 1: Bound the Number of Owners**
+        uint256 numOwners = bound(numOwnersInput, 3, 120);
+        uint256 requiredConfirmations = (numOwners / 2) + 1;
+
+        // **Step 2: Initialize Dynamic Owners**
+        address[] memory dynamicOwners = new address[](numOwners);
+        for (uint256 i = 0; i < numOwners; i++) {
+            dynamicOwners[i] = address(uint160(i + 1));
+        }
+
+        // **Step 3: Deploy MultisigWallet and ERC20 Token**
+        multisigWallet = new MultisigWallet(dynamicOwners);
+        SimpleERC20 dynamicERC20 = new SimpleERC20(1_000_000 * 10 ** 18); // 1,000,000 tokens
+        dynamicERC20.transfer(address(multisigWallet), 100_000 * 10 ** 18); // Transfer 100,000 tokens to the wallet
+
+        // **Step 4: Define Recipient and Transfer Amount**
+        address recipient = address(0xABC); // Arbitrary recipient address
+        uint256 transferAmount = 10_000 * 10 ** 18; // 10,000 tokens
+
+        // **Assert Initial Balances**
+        assertEq(
+            dynamicERC20.balanceOf(recipient),
+            0,
+            "Initial recipient balance should be zero"
+        );
+        assertEq(
+            dynamicERC20.balanceOf(address(multisigWallet)),
+            100_000 * 10 ** 18,
+            "Initial wallet balance incorrect"
+        );
+
+        // **Step 5: Prepare the ERC20 Transfer Data**
+        bytes memory transferData = abi.encodeWithSelector(
+            dynamicERC20.transfer.selector,
+            recipient,
+            transferAmount
+        );
+
+        // **Step 6: Expect SubmitTransaction Event**
+        vm.expectEmit(true, true, true, true);
+        emit SubmitTransaction(
+            MultisigWallet.TransactionType.ERC20,
+            0, // txIndex
+            recipient,
+            0, // value (0 for ERC20 transfers)
+            transferData,
+            address(dynamicERC20),
+            transferAmount,
+            dynamicOwners[0] // Initiator
+        );
+
+        // **Step 7: Expect ConfirmTransaction Event from Submitter**
+        vm.expectEmit(true, true, false, true);
+        emit ConfirmTransaction(dynamicOwners[0], 0);
+
+        // **Step 8: Submit the ERC20 Transfer Transaction**
+        vm.prank(dynamicOwners[0]); // Initiate from the first owner
+        multisigWallet.safeTransferERC20(
+            IERC20(address(dynamicERC20)),
+            recipient,
+            transferAmount
+        );
+
+        // **Step 9: Confirm the Transaction with Required Confirmations - 1**
+        // Since the first confirmation is already done by the submitter
+        for (uint256 i = 1; i < requiredConfirmations - 1; i++) {
+            vm.expectEmit(true, true, false, true);
+            emit ConfirmTransaction(dynamicOwners[i], 0);
+            vm.prank(dynamicOwners[i]);
+            multisigWallet.confirmTransaction(0);
+        }
+
+        // **Step 10: Final Confirmation to Trigger Execution**
+        // The last confirmation should trigger the execution
+        vm.expectEmit(true, false, false, true);
+        emit ExecuteTransaction(
+            MultisigWallet.TransactionType.ERC20,
+            0,
+            recipient,
+            0, // value (0 for ERC20 transfers)
+            transferData,
+            address(dynamicERC20),
+            transferAmount,
+            dynamicOwners[requiredConfirmations - 1] // Executor
+        );
+
+        vm.prank(dynamicOwners[requiredConfirmations - 1]); // Final confirmer
+        multisigWallet.confirmTransaction(0);
+
+        // **Step 11: Assertions to Ensure Correct Execution**
+        // Verify that the recipient's ERC20 balance has increased by the transfer amount
+        assertEq(
+            dynamicERC20.balanceOf(recipient),
+            transferAmount,
+            "Recipient should receive the ERC20 transfer"
+        );
+
+        // Verify that the Multisig Wallet's ERC20 balance has decreased accordingly
+        assertEq(
+            dynamicERC20.balanceOf(address(multisigWallet)),
+            100_000 * 10 ** 18 - transferAmount,
+            "Wallet ERC20 balance should decrease by transfer amount"
+        );
+    }
 }
 
 // Simple counter contract for testing "Other" transaction type
