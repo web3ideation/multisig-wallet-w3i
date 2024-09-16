@@ -1110,6 +1110,107 @@ contract MultisigWalletTest is Test {
             "Owner count should remain unchanged"
         );
     }
+
+    function testFuzzSendETHWithDynamicConfirmations(
+        uint256 numOwnersInput
+    ) public {
+        // **Step 1: Bound the Number of Owners**
+        // Ensure the number of owners is between 3 and 120 to maintain meaningful >50% confirmation logic
+        uint256 numOwners = bound(numOwnersInput, 3, 120);
+
+        // **Step 2: Calculate Required Confirmations**
+        // For >50%, requiredConfirmations = floor(numOwners / 2) + 1
+        uint256 requiredConfirmations = (numOwners / 2) + 1;
+
+        // **Step 3: Initialize Dynamic Owners**
+        address[] memory dynamicOwners = new address[](numOwners);
+        for (uint256 i = 0; i < numOwners; i++) {
+            dynamicOwners[i] = address(uint160(i + 1)); // Assign unique addresses
+        }
+
+        // **Step 4: Deploy a New Multisig Wallet with Dynamic Owners**
+        multisigWallet = new MultisigWallet(dynamicOwners);
+
+        // **Step 5: Fund the Multisig Wallet with ETH**
+        uint256 initialBalance = 10 ether;
+        vm.deal(address(multisigWallet), initialBalance);
+        assertEq(
+            address(multisigWallet).balance,
+            initialBalance,
+            "Initial balance mismatch"
+        );
+
+        // **Step 6: Define Recipient and Transfer Amount**
+        address payable recipient = payable(address(0xABC));
+        uint256 transferAmount = 1 ether;
+
+        // **Ensure Recipient Starts with Zero Balance**
+        assertEq(
+            recipient.balance,
+            0,
+            "Recipient should start with zero balance"
+        );
+
+        // **Step 7: Submit the ETH Transfer Transaction**
+        vm.expectEmit(true, true, true, true);
+        emit SubmitTransaction(
+            MultisigWallet.TransactionType.ETH,
+            0, // txIndex will be 0 as it's the first transaction
+            recipient,
+            transferAmount,
+            "",
+            address(0),
+            0,
+            dynamicOwners[0] // Initiator
+        );
+        vm.prank(dynamicOwners[0]); // Initiate from the first owner
+        multisigWallet.sendETH(recipient, transferAmount);
+
+        // **Step 8: Confirm the Transaction with Required Confirmations**
+        for (uint256 i = 1; i < requiredConfirmations - 1; i++) {
+            vm.expectEmit(true, true, false, true);
+            emit ConfirmTransaction(dynamicOwners[i], 0);
+            vm.prank(dynamicOwners[i]);
+            multisigWallet.confirmTransaction(0);
+        }
+
+        // **Step 9: Final Confirmation to Trigger Execution**
+        vm.expectEmit(true, true, false, true);
+        emit ConfirmTransaction(dynamicOwners[requiredConfirmations - 1], 0);
+
+        vm.expectEmit(true, false, false, true);
+        emit ExecuteTransaction(
+            MultisigWallet.TransactionType.ETH,
+            0,
+            recipient,
+            transferAmount,
+            "",
+            address(0),
+            0,
+            dynamicOwners[requiredConfirmations - 1] // Executor
+        );
+
+        vm.prank(dynamicOwners[requiredConfirmations - 1]); // Final confirmer
+        multisigWallet.confirmTransaction(0);
+
+        // **Step 10: Assertions to Ensure Correct Execution**
+        assertEq(
+            recipient.balance,
+            transferAmount,
+            "Recipient should receive the ETH transfer"
+        );
+        assertEq(
+            address(multisigWallet).balance,
+            initialBalance - transferAmount,
+            "Wallet balance should decrease by transfer amount"
+        );
+
+        // **Optional: Ensure Transaction is Marked as Inactive**
+        // You can add a getter or access the transactions array directly if accessible
+        // Example (if transactions are accessible):
+        // Transaction memory txn = multisigWallet.transactions(0);
+        // assertFalse(txn.isActive, "Transaction should be inactive after execution");
+    }
 }
 
 // Simple counter contract for testing "Other" transaction type
