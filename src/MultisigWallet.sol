@@ -346,7 +346,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
     ) internal onlyMultisigOwner txExists(_txIndex) isActive(_txIndex) {
         Transaction storage transaction = transactions[_txIndex];
         require(
-            transaction.numConfirmations * 10000 >= owners.length * 6667,
+            transaction.numConfirmations * 3 >= owners.length * 2,
             "Not enough confirmations"
         );
 
@@ -380,7 +380,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
     ) internal onlyMultisigOwner txExists(_txIndex) isActive(_txIndex) {
         Transaction storage transaction = transactions[_txIndex];
         require(
-            transaction.numConfirmations * 10000 >= owners.length * 6667,
+            transaction.numConfirmations * 3 >= owners.length * 2,
             "Not enough confirmations"
         );
 
@@ -495,10 +495,10 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
             transactionType == TransactionType.RemoveOwner
         ) {
             // Important decisions require 2/3 or more confirmations
-            return numConfirmations * 10000 >= owners.length * 6667;
+            return numConfirmations * 3 >= owners.length * 2;
         } else {
             // Normal decisions require more than 50% confirmations
-            return numConfirmations * 10000 > owners.length * 5000;
+            return numConfirmations * 2 > owners.length;
         }
     }
 

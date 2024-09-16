@@ -69,21 +69,21 @@ transaction index should start with 1 instead of 0 -> machts kompliziert also la
 for the transfer erc20 and 721 functions of the multisig wallet the from is obviously this.address, so it shouldnt be needed in the functions arguments --> it makes sense to have from, because the contract could also handle tokens where it just has the rights to, without owning them (so i added the from parameter to ther erc721 as well)
 Add that with submitting there will automatically the confirm function be called (is that necessary?) ✅
 
-➡️ ok this is my contract now ... please let me know where i can safe gas significantly
+ok this is my contract now ... please let me know where i can safe gas significantly ✅
 
-funktion nochmal mit testscript bestätigen
+funktion nochmal mit testscript bestätigen ✅
 
-check if the 2/3 and 50%+1 really works for 2 3 4 5 6 7 8 99 999 owners
+check if the 2/3 and 50%+1 really works for 2 3 4 5 6 7 8 99 owners ✅
 
-Error Handling: Add more descriptive error messages for edge cases, such as invalid data formats or failed transactions.
+➡️ Error Handling: Add more descriptive error messages for edge cases, such as invalid data formats or failed transactions.
 
 Add licence files
 use .env for privatekey und so
 natspec nochmal machen lassen weil ich ja sachen geändert hatte
 
--extensives testscript und fuzzing schreiben (das testscript was ich aktuell habe verstehe ich nicht 100% also sicher gehen dass ich keinen scheiß teste) (Add more edge case tests, particularly around owner management and transaction execution. ; Add tests for potential malicious scenarios to ensure the contract is secure against various attack vectors. ; 1. testFailAddExistingOwner() The failure in testFailAddExistingOwner() suggests that either:
-The contract allows adding an existing owner, which it shouldn't, or The test might be incorrectly asserting the behavior.)
-doublecheck that if a multisigowner gets deleted that the numconfirmation gets reduced in case otherwise there would be more confirmations required than multisigowners exist.
+- "Please evaluate my tests critically if they make sense or if they are bent in a way that they actually cover up issues with my smart contract" - extensives testscript und fuzzing schreiben (das testscript was ich aktuell habe verstehe ich nicht 100% also sicher gehen dass ich keinen scheiß teste) (Add more edge case tests, particularly around owner management and transaction execution. ; Add tests for potential malicious scenarios to ensure the contract is secure against various attack vectors. ; 1. testFailAddExistingOwner() The failure in testFailAddExistingOwner() suggests that either:
+  The contract allows adding an existing owner, which it shouldn't, or The test might be incorrectly asserting the behavior.)
+  doublecheck that if a multisigowner gets deleted that the numconfirmation gets reduced in case otherwise there would be more confirmations required than multisigowners exist.
 
 -
 -

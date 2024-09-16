@@ -597,6 +597,146 @@ contract MultisigWalletTest is Test {
         vm.prank(owner1);
         multisigWallet.removeOwner(nonOwner);
     }
+
+    function testAddOwnerWithDynamicConfirmations() public {
+        uint numOwners = 100; // set the number of Owners
+        uint confirmations = 67; // set the nunber of Confirmations
+        address[] memory dynamicOwners = new address[](numOwners);
+        for (uint i = 0; i < numOwners; i++) {
+            dynamicOwners[i] = address(uint160(i + 1)); // Assign unique addresses to owners
+        }
+
+        // Initialize a new multisig wallet with dynamic owners
+        multisigWallet = new MultisigWallet(dynamicOwners);
+
+        address newOwner = address(0x123);
+
+        // Emit the event for submitting the add owner transaction
+        vm.expectEmit(true, true, true, true);
+        emit SubmitTransaction(
+            MultisigWallet.TransactionType.AddOwner,
+            0,
+            newOwner,
+            0,
+            "",
+            address(0),
+            0,
+            dynamicOwners[0]
+        );
+        vm.prank(dynamicOwners[0]);
+        multisigWallet.addOwner(newOwner);
+
+        // Loop through to confirm the transaction until reaching the required confirmations (2/3 + 1)
+        for (uint i = 1; i < confirmations - 1; i++) {
+            vm.expectEmit(true, true, false, true);
+            emit ConfirmTransaction(dynamicOwners[i], 0);
+            vm.prank(dynamicOwners[i]);
+            multisigWallet.confirmTransaction(0);
+        }
+
+        // Final confirmation that triggers the execution
+        vm.expectEmit(true, true, false, true);
+        emit ConfirmTransaction(dynamicOwners[confirmations - 1], 0);
+        vm.expectEmit(true, false, false, true);
+        emit OwnerAdded(newOwner);
+        vm.expectEmit(true, true, true, true);
+        emit ExecuteTransaction(
+            MultisigWallet.TransactionType.AddOwner,
+            0,
+            newOwner,
+            0,
+            "",
+            address(0),
+            0,
+            dynamicOwners[confirmations - 1]
+        );
+        vm.prank(dynamicOwners[confirmations - 1]);
+        multisigWallet.confirmTransaction(0);
+
+        // Check that the new owner is indeed added
+        assertTrue(multisigWallet.isOwner(newOwner));
+        assertEq(multisigWallet.getOwnerCount(), numOwners + 1);
+    }
+
+    function testFuzzAddOwnerWithDynamicConfirmations(uint numOwners) public {
+        // Limit the number of owners to 120 for fuzzing
+        numOwners = bound(numOwners, 3, 120); // Minimum of 3 owners to ensure at least 2/3 logic works
+
+        // Dynamically calculate required confirmations (2/3 of numOwners)
+        uint requiredConfirmations = (numOwners * 2 + 2) / 3; // This gives us 2/3 + 1 confirmation threshold
+
+        address[] memory dynamicOwners = new address[](numOwners);
+        for (uint i = 0; i < numOwners; i++) {
+            dynamicOwners[i] = address(uint160(i + 1)); // Assign unique addresses to owners
+        }
+
+        // Initialize a new multisig wallet with dynamic owners
+        multisigWallet = new MultisigWallet(dynamicOwners);
+
+        address newOwner = address(0x123);
+
+        // Emit the event for submitting the add owner transaction
+        vm.expectEmit(true, true, true, true);
+        emit SubmitTransaction(
+            MultisigWallet.TransactionType.AddOwner,
+            0,
+            newOwner,
+            0,
+            "",
+            address(0),
+            0,
+            dynamicOwners[0]
+        );
+        vm.prank(dynamicOwners[0]);
+        multisigWallet.addOwner(newOwner);
+
+        // Loop through to confirm the transaction until reaching the required confirmations (2/3 + 1)
+        for (uint i = 1; i < requiredConfirmations - 1; i++) {
+            vm.expectEmit(true, true, false, true);
+            emit ConfirmTransaction(dynamicOwners[i], 0);
+            vm.prank(dynamicOwners[i]);
+            multisigWallet.confirmTransaction(0);
+        }
+
+        // Final confirmation that triggers the execution
+        vm.expectEmit(true, true, false, true);
+        emit ConfirmTransaction(dynamicOwners[requiredConfirmations - 1], 0);
+        vm.expectEmit(true, false, false, true);
+        emit OwnerAdded(newOwner);
+        vm.expectEmit(true, true, true, true);
+        emit ExecuteTransaction(
+            MultisigWallet.TransactionType.AddOwner,
+            0,
+            newOwner,
+            0,
+            "",
+            address(0),
+            0,
+            dynamicOwners[requiredConfirmations - 1]
+        );
+        vm.prank(dynamicOwners[requiredConfirmations - 1]);
+        multisigWallet.confirmTransaction(0);
+
+        // Check that the new owner is indeed added
+        assertTrue(multisigWallet.isOwner(newOwner));
+        assertEq(multisigWallet.getOwnerCount(), numOwners + 1);
+    }
+
+    function testSingleOwnerCanAddAnother() public {
+        uint numOwners = 1;
+        address[] memory dynamicOwners = new address[](numOwners);
+        dynamicOwners[0] = address(uint160(1));
+
+        multisigWallet = new MultisigWallet(dynamicOwners);
+        address newOwner = address(0x123);
+
+        vm.prank(dynamicOwners[0]);
+        multisigWallet.addOwner(newOwner);
+
+        // Check if the new owner was successfully added
+        assertTrue(multisigWallet.isOwner(newOwner));
+        assertEq(multisigWallet.getOwnerCount(), numOwners + 1);
+    }
 }
 
 // Simple counter contract for testing "Other" transaction type
