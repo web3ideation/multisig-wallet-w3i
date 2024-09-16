@@ -155,8 +155,8 @@ contract MultisigWalletTest is Test {
 
             if (i * 1000 == (owners.length * 1000 * 2) / 3) {
                 // This is the last confirmation, so expect the execution events
-                // vm.expectEmit(true, false, false, true);
-                // emit PendingTransactionsDeactivated(); // !!! Why do i get a compilation error here??
+                vm.expectEmit(true, false, false, true);
+                emit PendingTransactionsDeactivated();
                 vm.expectEmit(true, false, false, true);
                 emit OwnerRemoved(owner5);
                 vm.expectEmit(true, true, true, true);
@@ -983,6 +983,132 @@ contract MultisigWalletTest is Test {
         vm.prank(initiator);
         vm.expectRevert("Not an owner");
         multisigWallet.removeOwner(nonExistentOwner);
+    }
+
+    function testMaliciousOtherTransactionCannotAddOwner() public {
+        // Define the malicious owner and the new owner to be added
+        address maliciousOwner = owner1;
+        address newOwner = address(0x999);
+
+        // Encode the calldata to call addOwner(newOwner)
+        bytes memory payload = abi.encodeWithSignature(
+            "addOwner(address)",
+            newOwner
+        );
+
+        // Expect the SubmitTransaction event to be emitted
+        vm.expectEmit(true, true, true, true);
+        emit SubmitTransaction(
+            MultisigWallet.TransactionType.Other,
+            0, // txIndex will be 0 as it's the first transaction
+            address(multisigWallet), // to address is the MultisigWallet itself
+            0, // value is 0 for function calls
+            payload, // data is the encoded addOwner call
+            address(0), // tokenAddress is 0 for "Other" transactions
+            0, // amountOrTokenId is 0 for "Other" transactions
+            maliciousOwner // owner who submitted the transaction
+        );
+
+        // Prank as the malicious owner and submit the "Other" transaction
+        vm.prank(maliciousOwner);
+        multisigWallet.submitTransaction(
+            MultisigWallet.TransactionType.Other,
+            address(multisigWallet), // to address is the MultisigWallet itself
+            0, // value is 0 for function calls
+            payload // data is the encoded addOwner call
+        );
+
+        // At this point, the transaction has 1 confirmation from the maliciousOwner
+        // For a 5-owner setup, >50% confirmations require 3 confirmations
+
+        // Owner2 confirms the transaction
+        vm.expectEmit(true, true, false, true);
+        emit ConfirmTransaction(owner2, 0);
+        vm.prank(owner2);
+        multisigWallet.confirmTransaction(0);
+
+        // Owner3 attempts to confirm the transaction, which should trigger execution
+        // Since the transaction type is "Other" and only >50% confirmations are met,
+        // executeTransaction will attempt to call addOwner, which should fail
+        vm.expectRevert("Transaction failed");
+        vm.expectEmit(true, true, false, true);
+        emit ConfirmTransaction(owner3, 0);
+        vm.prank(owner3);
+        multisigWallet.confirmTransaction(0);
+
+        // After the revert, verify that the new owner was not added
+        assertFalse(
+            multisigWallet.isOwner(newOwner),
+            "New owner should not be added"
+        );
+        assertEq(
+            multisigWallet.getOwnerCount(),
+            5,
+            "Owner count should remain unchanged"
+        );
+    }
+
+    function testMaliciousOtherTransactionCannotRemoveOwner() public {
+        // Define the malicious owner and the owner to be removed
+        address maliciousOwner = owner1;
+        address ownerToRemove = owner5;
+
+        // Encode the calldata to call removeOwner(ownerToRemove)
+        bytes memory payload = abi.encodeWithSignature(
+            "removeOwner(address)",
+            ownerToRemove
+        );
+
+        // Expect the SubmitTransaction event to be emitted
+        vm.expectEmit(true, true, true, true);
+        emit SubmitTransaction(
+            MultisigWallet.TransactionType.Other, // TransactionType.Other
+            0, // txIndex (first transaction)
+            address(multisigWallet), // to address is the MultisigWallet itself
+            0, // value is 0 for function calls
+            payload, // data is the encoded removeOwner call
+            address(0), // tokenAddress is 0 for "Other" transactions
+            0, // amountOrTokenId is 0 for "Other" transactions
+            maliciousOwner // owner who submitted the transaction
+        );
+
+        // Prank as the malicious owner and submit the "Other" transaction
+        vm.prank(maliciousOwner);
+        multisigWallet.submitTransaction(
+            MultisigWallet.TransactionType.Other, // TransactionType.Other
+            address(multisigWallet), // to address is the MultisigWallet itself
+            0, // value is 0 for function calls
+            payload // data is the encoded removeOwner call
+        );
+
+        // At this point, the transaction has 1 confirmation from the maliciousOwner
+        // For a 5-owner setup, >50% confirmations require 3 confirmations
+
+        // Owner2 confirms the transaction
+        vm.expectEmit(true, true, false, true);
+        emit ConfirmTransaction(owner2, 0);
+        vm.prank(owner2);
+        multisigWallet.confirmTransaction(0);
+
+        // Owner3 attempts to confirm the transaction, which should trigger execution
+        // Since the transaction type is "Other" and only >50% confirmations are met,
+        // executeTransaction will attempt to call removeOwner, which should fail
+        vm.expectRevert("Transaction failed"); // Expect the execution to revert
+        vm.expectEmit(true, true, false, true);
+        emit ConfirmTransaction(owner3, 0);
+        vm.prank(owner3);
+        multisigWallet.confirmTransaction(0);
+
+        // After the revert, verify that the owner was not removed
+        assertTrue(
+            multisigWallet.isOwner(ownerToRemove),
+            "Owner should not be removed"
+        );
+        assertEq(
+            multisigWallet.getOwnerCount(),
+            5,
+            "Owner count should remain unchanged"
+        );
     }
 }
 

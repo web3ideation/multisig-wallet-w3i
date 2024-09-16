@@ -238,7 +238,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         emit ConfirmTransaction(msg.sender, _txIndex);
 
         if (hasEnoughConfirmations(newNumConfirmations, txType)) {
-            executeTransaction(_txIndex);
+            executeTransaction(_txIndex); // this means that the owner who gives the last needed confirmation has to pay for the execution gas fees
         }
     }
 
