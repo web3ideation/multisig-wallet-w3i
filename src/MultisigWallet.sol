@@ -260,7 +260,13 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      */
     function executeTransaction(
         uint256 _txIndex
-    ) internal txExists(_txIndex) isActive(_txIndex) nonReentrant {
+    )
+        public
+        txExists(_txIndex)
+        isActive(_txIndex)
+        nonReentrant
+        onlyMultisigOwner
+    {
         Transaction storage transaction = transactions[_txIndex];
 
         uint64 numConfirmations = transaction.numConfirmations;
@@ -268,7 +274,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
 
         require(
             hasEnoughConfirmations(numConfirmations, txType),
-            "MultisigWallet: Not enough confirmations"
+            "MultisigWallet: insufficient confirmations to execute"
         );
 
         address to = transaction.to;

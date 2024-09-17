@@ -13,6 +13,10 @@ contract MultisigWalletTest is Test {
     address[] public owners;
     address[] public twoOwners;
     address[] public singleOwner;
+    address[] public noOwners;
+    address[] public invalidOwners;
+    address[] public duplicateOwners;
+
     uint256 public constant INITIAL_BALANCE = 10 ether;
     uint256 public constant ERC20_INITIAL_SUPPLY = 1000000 * 10 ** 18;
 
@@ -21,7 +25,7 @@ contract MultisigWalletTest is Test {
     address public owner3 = address(3);
     address public owner4 = address(4);
     address public owner5 = address(5);
-    address public nonOwner = address(100);
+    address public nonOwner = address(1000);
 
     event Deposit(address indexed sender, uint256 amount, uint256 balance);
     event SubmitTransaction(
@@ -55,6 +59,8 @@ contract MultisigWalletTest is Test {
         owners = [owner1, owner2, owner3, owner4, owner5];
         twoOwners = [owner1, owner2];
         singleOwner = [owner1];
+        invalidOwners = [address(0)];
+        duplicateOwners = [address(1), address(1)];
         multisigWallet = new MultisigWallet(owners);
         erc20Token = new SimpleERC20(ERC20_INITIAL_SUPPLY);
         erc721Token = new SimpleERC721();
@@ -1430,6 +1436,206 @@ contract MultisigWalletTest is Test {
         );
 
         // No further confirmations should be attempted after execution
+    }
+
+    // 1. Test Constructor Validations
+
+    function testConstructorRevertsWithNoOwners() public {
+        vm.expectRevert("MultisigWallet: at least one owner required");
+        new MultisigWallet(noOwners);
+    }
+
+    function testConstructorRevertsWithZeroAddressOwner() public {
+        vm.expectRevert("MultisigWallet: owner address cannot be zero");
+        new MultisigWallet(invalidOwners);
+    }
+
+    function testConstructorRevertsWithDuplicateOwners() public {
+        vm.expectRevert("MultisigWallet: duplicate owner address");
+        new MultisigWallet(duplicateOwners);
+    }
+
+    // 2. Test Transaction Submission Validations
+
+    function testSubmitETHTransactionWithZeroValue() public {
+        address recipient = address(0x123);
+        vm.expectRevert("MultisigWallet: Ether (Wei) amount required");
+        vm.prank(owner1);
+        multisigWallet.sendETH(recipient, 0);
+    }
+
+    function testSubmitERC20TransactionWithEmptyData() public {
+        bytes memory emptyData = "";
+
+        vm.expectRevert(
+            "MultisigWallet: invalid data length for ERC20 transfer"
+        );
+        vm.prank(owner1);
+        multisigWallet.submitTransaction(
+            MultisigWallet.TransactionType.ERC20,
+            address(erc20Token),
+            0,
+            emptyData
+        );
+    }
+
+    // 3. Test Confirmation and Execution Errors
+
+    function testDoubleConfirmationReverts() public {
+        vm.prank(owner1);
+        multisigWallet.sendETH(owner2, 1 ether);
+
+        vm.prank(owner1);
+        vm.expectRevert(
+            "MultisigWallet: transaction already confirmed by this owner"
+        );
+        multisigWallet.confirmTransaction(0);
+    }
+
+    function testExecuteWithoutEnoughConfirmations() public {
+        address payable recipient = payable(address(0x123));
+        uint256 amount = 1 ether;
+
+        // Initiate the ETH transfer from owner1 (this auto-confirms by owner1)
+        vm.prank(owner1);
+        multisigWallet.sendETH(recipient, amount);
+
+        // Confirm the transaction with only owner2 (total 2 confirmations out of 5)
+        vm.prank(owner2);
+        multisigWallet.confirmTransaction(0);
+
+        // Attempt to execute the transaction with owner3, expecting a revert
+        vm.expectRevert(
+            "MultisigWallet: insufficient confirmations to execute"
+        );
+        vm.prank(owner3);
+        multisigWallet.executeTransaction(0);
+
+        // Verify that the transaction was not executed
+        assertEq(
+            recipient.balance,
+            0,
+            "Recipient should not have received ETH"
+        );
+        assertEq(
+            address(multisigWallet).balance,
+            INITIAL_BALANCE,
+            "Wallet balance should remain unchanged"
+        );
+    }
+
+    // 4. Test Data Decoding Errors
+
+    function testMalformedERC20TransferData() public {
+        address recipient = address(0x123);
+        // Incorrect data length (e.g., missing bytes)
+        bytes memory malformedData = abi.encodeWithSelector(
+            IERC20.transfer.selector,
+            recipient
+        );
+
+        vm.expectRevert(
+            "MultisigWallet: invalid data length for ERC20 transfer"
+        );
+        vm.prank(owner1);
+        multisigWallet.submitTransaction(
+            MultisigWallet.TransactionType.ERC20,
+            address(erc20Token),
+            0,
+            malformedData
+        );
+    }
+
+    function testMalformedERC721TransferData() public {
+        address from = address(multisigWallet);
+        address to = address(0x123);
+        // Incorrect data length (e.g., missing tokenId)
+        bytes memory malformedData = abi.encodeWithSignature(
+            "safeTransferFrom(address,address)",
+            from,
+            to
+        );
+
+        vm.expectRevert(
+            "MultisigWallet: invalid data length for ERC721 transfer"
+        );
+
+        // Use the submitTransaction directly to pass the malformed data
+        vm.prank(owner1);
+        multisigWallet.submitTransaction(
+            MultisigWallet.TransactionType.ERC721,
+            address(erc721Token),
+            0,
+            malformedData // Pass the malformed data here
+        );
+    }
+
+    // 5. Test Owner Management Edge Cases
+
+    function testAddExistingOwnerReverts() public {
+        address existingOwner = owner1;
+
+        vm.prank(owner2);
+        vm.expectRevert("MultisigWallet: owner already exists");
+        multisigWallet.addOwner(existingOwner);
+    }
+
+    function testRemoveNonExistentOwnerReverts() public {
+        address nonExistentOwner = address(0x999);
+
+        vm.prank(owner1);
+        vm.expectRevert("MultisigWallet: address is not an owner");
+        multisigWallet.removeOwner(nonExistentOwner);
+    }
+
+    function testRemoveLastOwnerReverts() public {
+        // Initialize with single owner
+        multisigWallet = new MultisigWallet(singleOwner);
+
+        address soleOwner = owner1;
+
+        vm.prank(soleOwner);
+        vm.expectRevert("MultisigWallet: cannot remove the last owner");
+        multisigWallet.removeOwner(soleOwner);
+    }
+
+    // 6. Test Reentrancy and Security Guards
+
+    function testReentrancyProtection() public {
+        // Deploy a malicious contract that attempts to re-enter
+        MaliciousContract attacker = new MaliciousContract(
+            payable(address(multisigWallet)) // Cast to payable
+        );
+
+        // Fund the wallet with ETH
+        vm.deal(address(multisigWallet), 10 ether);
+
+        // Submit a transaction that sends ETH to the attacker, triggering reentrancy
+        vm.prank(owner1);
+        multisigWallet.sendETH(address(attacker), 1 ether);
+
+        // Confirm the transaction
+        vm.prank(owner2);
+        multisigWallet.confirmTransaction(0);
+
+        // Expect reentrancy guard to prevent the attack
+        vm.expectRevert("MultisigWallet: external call failed");
+        vm.prank(owner3);
+        multisigWallet.confirmTransaction(0);
+    }
+}
+
+// Malicious contract that attempts a reentrancy attack
+contract MaliciousContract {
+    MultisigWallet public target;
+
+    constructor(address payable _target) {
+        target = MultisigWallet(_target);
+    }
+
+    receive() external payable {
+        // Attempt to re-enter the executeTransaction function
+        target.confirmTransaction(0);
     }
 }
 
