@@ -181,12 +181,12 @@ contract MultisigWalletTest is Test {
         assertEq(multisigWallet.getOwnerCount(), initialOwnerCount - 1);
 
         // Check that owner5 can no longer confirm transactions
-        vm.expectRevert("Not a multisig owner");
+        vm.expectRevert("MultisigWallet: Not a multisig owner");
         vm.prank(owner5);
         multisigWallet.confirmTransaction(0);
 
         // Check that trying to confirm the transaction again fails
-        vm.expectRevert("Transaction not active");
+        vm.expectRevert("MultisigWallet: Transaction not active");
         vm.prank(owners[0]);
         multisigWallet.confirmTransaction(0);
     }
@@ -534,7 +534,7 @@ contract MultisigWalletTest is Test {
             multisigWallet.confirmTransaction(0);
         }
 
-        vm.expectRevert("Owner already exists");
+        vm.expectRevert("MultisigWallet: owner already exists");
         vm.prank(owner1);
         multisigWallet.addOwner(address(0x123));
     }
@@ -569,7 +569,7 @@ contract MultisigWalletTest is Test {
     }
 
     function testNonOwnerSubmitTransaction() public {
-        vm.expectRevert("Not a multisig owner");
+        vm.expectRevert("MultisigWallet: Not a multisig owner");
         vm.prank(nonOwner);
         multisigWallet.sendETH(owner2, 1 ether);
     }
@@ -578,7 +578,7 @@ contract MultisigWalletTest is Test {
         vm.prank(owner1);
         multisigWallet.sendETH(owner2, 1 ether);
 
-        vm.expectRevert("Not a multisig owner");
+        vm.expectRevert("MultisigWallet: Not a multisig owner");
         vm.prank(nonOwner);
         multisigWallet.confirmTransaction(0);
     }
@@ -587,19 +587,21 @@ contract MultisigWalletTest is Test {
         vm.prank(owner1);
         multisigWallet.sendETH(owner2, 1 ether);
 
-        vm.expectRevert("Transaction already confirmed");
+        vm.expectRevert(
+            "MultisigWallet: transaction already confirmed by this owner"
+        );
         vm.prank(owner1);
         multisigWallet.confirmTransaction(0);
     }
 
     function testExecuteNonExistentTransaction() public {
-        vm.expectRevert("Transaction does not exist");
+        vm.expectRevert("MultisigWallet: Transaction does not exist");
         vm.prank(owner1);
         multisigWallet.confirmTransaction(999);
     }
 
     function testRemoveNonOwner() public {
-        vm.expectRevert("Not an owner");
+        vm.expectRevert("MultisigWallet: address is not an owner");
         vm.prank(owner1);
         multisigWallet.removeOwner(nonOwner);
     }
@@ -953,7 +955,7 @@ contract MultisigWalletTest is Test {
 
         // Attempt to remove the only owner
         vm.prank(ownerToRemove);
-        vm.expectRevert("Cannot remove the last owner");
+        vm.expectRevert("MultisigWallet: cannot remove the last owner");
         multisigWallet.removeOwner(ownerToRemove);
     }
 
@@ -967,7 +969,7 @@ contract MultisigWalletTest is Test {
 
         // Attempt to remove an owner from a non-owner account
         vm.prank(nonOwnerAddress);
-        vm.expectRevert("Not a multisig owner");
+        vm.expectRevert("MultisigWallet: Not a multisig owner");
         multisigWallet.removeOwner(ownerToRemove);
     }
 
@@ -981,7 +983,7 @@ contract MultisigWalletTest is Test {
 
         // Attempt to remove a non-existent owner
         vm.prank(initiator);
-        vm.expectRevert("Not an owner");
+        vm.expectRevert("MultisigWallet: address is not an owner");
         multisigWallet.removeOwner(nonExistentOwner);
     }
 
@@ -1030,7 +1032,7 @@ contract MultisigWalletTest is Test {
         // Owner3 attempts to confirm the transaction, which should trigger execution
         // Since the transaction type is "Other" and only >50% confirmations are met,
         // executeTransaction will attempt to call addOwner, which should fail
-        vm.expectRevert("Transaction failed");
+        vm.expectRevert("MultisigWallet: external call failed");
         vm.expectEmit(true, true, false, true);
         emit ConfirmTransaction(owner3, 0);
         vm.prank(owner3);
@@ -1093,7 +1095,7 @@ contract MultisigWalletTest is Test {
         // Owner3 attempts to confirm the transaction, which should trigger execution
         // Since the transaction type is "Other" and only >50% confirmations are met,
         // executeTransaction will attempt to call removeOwner, which should fail
-        vm.expectRevert("Transaction failed"); // Expect the execution to revert
+        vm.expectRevert("MultisigWallet: external call failed"); // Expect the execution to revert
         vm.expectEmit(true, true, false, true);
         emit ConfirmTransaction(owner3, 0);
         vm.prank(owner3);
