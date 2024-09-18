@@ -2,7 +2,7 @@
 // This file is part of the MultisigWallet project.
 // Portions of this code are derived from the OpenZeppelin Contracts library.
 // OpenZeppelin Contracts are licensed under the MIT License.
-// See the LICENSE file for more details.
+// See the LICENSE and NOTICE files for more details.
 pragma solidity ^0.8.7;
 
 import "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
@@ -16,22 +16,31 @@ import "openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol";
  * @dev A multisig wallet contract that requires multiple confirmations for transactions, including managing owners.
  */
 contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
-    /// @notice Emitted when a deposit is made.
-    /// @param sender The address that sent the deposit.
-    /// @param amountOrTokenId The amount of the deposit.
-    /// @param balance The new balance of the wallet.
+    using SafeERC20 for IERC20;
+
+    /**
+     * @notice Emitted when a deposit is made.
+     * @param sender The address that sent the deposit.
+     * @param amountOrTokenId The amount of Ether or the token ID for ERC721 deposits.
+     * @param balance The new balance of the wallet after the deposit.
+     */
     event Deposit(
         address indexed sender,
         uint256 amountOrTokenId,
         uint256 balance
     );
 
-    /// @notice Emitted when a transaction is submitted.
-    /// @param txIndex The index of the submitted transaction.
-    /// @param to The address to which the transaction is sent.
-    /// @param value The amount of Ether sent in the transaction.
-    /// @param data The data sent with the transaction.
-    /// @param owner The address of the owner who submitted the transaction.
+    /**
+     * @notice Emitted when a transaction is submitted.
+     * @param _transactionType The type of the submitted transaction.
+     * @param txIndex The index of the submitted transaction.
+     * @param to The address to which the transaction is directed.
+     * @param value The amount of Ether sent in the transaction.
+     * @param data The data payload of the transaction.
+     * @param tokenAddress The address of the token contract (if applicable).
+     * @param amountOrTokenId The amount of tokens or the token ID (if applicable).
+     * @param owner The address of the owner who submitted the transaction.
+     */
     event SubmitTransaction(
         TransactionType indexed _transactionType,
         uint256 indexed txIndex,
@@ -43,19 +52,31 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         address owner
     );
 
-    /// @notice Emitted when a transaction is confirmed.
-    /// @param owner The address of the owner who confirmed the transaction.
-    /// @param txIndex The index of the confirmed transaction.
+    /**
+     * @notice Emitted when a transaction is confirmed by an owner.
+     * @param owner The address of the owner who confirmed the transaction.
+     * @param txIndex The index of the confirmed transaction.
+     */
     event ConfirmTransaction(address indexed owner, uint256 indexed txIndex);
 
-    /// @notice Emitted when a confirmation is revoked.
-    /// @param owner The address of the owner who revoked the confirmation.
-    /// @param txIndex The index of the transaction for which the confirmation was revoked.
+    /**
+     * @notice Emitted when a confirmation for a transaction is revoked by an owner.
+     * @param owner The address of the owner who revoked the confirmation.
+     * @param txIndex The index of the transaction for which the confirmation was revoked.
+     */
     event RevokeConfirmation(address indexed owner, uint256 indexed txIndex);
 
-    /// @notice Emitted when a transaction is executed.
-    /// @param owner The address of the owner who executed the transaction.
-    /// @param txIndex The index of the executed transaction.
+    /**
+     * @notice Emitted when a transaction is executed.
+     * @param _transactionType The type of the executed transaction.
+     * @param txIndex The index of the executed transaction.
+     * @param to The address to which the transaction was sent.
+     * @param value The amount of Ether sent in the transaction.
+     * @param data The data payload of the transaction.
+     * @param tokenAddress The address of the token contract (if applicable).
+     * @param amountOrTokenId The amount of tokens or the token ID (if applicable).
+     * @param owner The address of the owner who executed the transaction.
+     */
     event ExecuteTransaction(
         TransactionType indexed _transactionType,
         uint256 indexed txIndex,
@@ -67,24 +88,43 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         address owner
     );
 
-    /// @notice Emitted when an owner is added.
-    /// @param owner The address of the owner added.
+    /**
+     * @notice Emitted when a new owner is added to the multisig wallet.
+     * @param owner The address of the owner that was added.
+     */
     event OwnerAdded(address indexed owner);
 
-    /// @notice Emitted when an owner is removed.
-    /// @param owner The address of the owner removed.
+    /**
+     * @notice Emitted when an owner is removed from the multisig wallet.
+     * @param owner The address of the owner that was removed.
+     */
     event OwnerRemoved(address indexed owner);
 
-    /// @notice Emitted when all pending transactions have been cleared.
+    /**
+     * @notice Emitted when all pending transactions are deactivated.
+     */
     event PendingTransactionsDeactivated();
 
+    /**
+     * @notice Emitted when an owner deactivates their own pending transaction.
+     * @param txIndex The index of the transaction that was deactivated.
+     * @param owner The address of the owner who deactivated the transaction.
+     */
     event DeactivatedMyPendingTransaction(
         uint indexed txIndex,
         address indexed owner
     );
 
-    using SafeERC20 for IERC20;
-
+    /**
+     * @enum TransactionType
+     * @dev Represents the type of transaction in the multisig wallet.
+     * @param ETH Ether transfer.
+     * @param ERC20 ERC20 token transfer.
+     * @param ERC721 ERC721 token transfer.
+     * @param AddOwner Adding a new owner.
+     * @param RemoveOwner Removing an existing owner.
+     * @param Other Any other transaction type.
+     */
     enum TransactionType {
         ETH,
         ERC20,
@@ -94,6 +134,17 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         Other
     }
 
+    /**
+     * @struct Transaction
+     * @dev Represents a transaction within the multisig wallet.
+     * @param transactionType The type of the transaction.
+     * @param isActive Indicates if the transaction is active.
+     * @param numConfirmations The number of confirmations the transaction has received.
+     * @param owner The address of the owner who submitted the transaction.
+     * @param to The destination address of the transaction.
+     * @param value The amount of Ether involved in the transaction.
+     * @param data The data payload of the transaction.
+     */
     struct Transaction {
         TransactionType transactionType;
         bool isActive;
@@ -104,17 +155,32 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         bytes data;
     }
 
+    /// @notice Array of multisig wallet owners.
     address[] public owners;
+
+    /// @notice Mapping to check if an address is an owner.
     mapping(address => bool) public isOwner;
 
+    /// @notice Nested mapping to track confirmations: transaction index => owner => confirmation status.
     mapping(uint256 => mapping(address => bool)) public isConfirmed;
+
+    /// @notice Array of all submitted transactions.
     Transaction[] public transactions;
 
+    /**
+     * @notice Modifier to restrict access to only multisig owners.
+     * @dev Reverts if the caller is not an owner.
+     */
     modifier onlyMultisigOwner() {
         require(isOwner[msg.sender], "MultisigWallet: Not a multisig owner");
         _;
     }
 
+    /**
+     * @notice Modifier to check if a transaction exists.
+     * @dev Reverts if the transaction does not exist.
+     * @param _txIndex The index of the transaction.
+     */
     modifier txExists(uint256 _txIndex) {
         require(
             _txIndex < transactions.length,
@@ -123,6 +189,11 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         _;
     }
 
+    /**
+     * @notice Modifier to check if a transaction is active.
+     * @dev Reverts if the transaction is not active.
+     * @param _txIndex The index of the transaction.
+     */
     modifier isActive(uint256 _txIndex) {
         require(
             transactions[_txIndex].isActive,
@@ -131,6 +202,11 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         _;
     }
 
+    /**
+     * @notice Modifier to ensure the transaction has not been confirmed by the caller.
+     * @dev Reverts if the transaction is already confirmed by the caller.
+     * @param _txIndex The index of the transaction.
+     */
     modifier notConfirmed(uint256 _txIndex) {
         require(
             !isConfirmed[_txIndex][msg.sender],
@@ -140,8 +216,9 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
     }
 
     /**
-     * @dev Constructor to initialize the contract.
-     * @param _owners The addresses of the owners.
+     * @notice Initializes the multisig wallet with a list of owners.
+     * @dev The constructor sets the initial owners and ensures no duplicates or zero addresses.
+     * @param _owners The array of addresses to be set as initial owners.
      */
     constructor(address[] memory _owners) {
         require(
@@ -163,17 +240,20 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
     }
 
     /**
-     * @dev Fallback function to receive Ether.
+     * @notice Fallback function to receive Ether.
+     * @dev Emits a {Deposit} event upon receiving Ether.
      */
     receive() external payable {
         emit Deposit(msg.sender, msg.value, address(this).balance);
     }
 
     /**
-     * @dev Submits a transaction to be confirmed by the owners.
+     * @notice Submits a transaction to be confirmed by the owners.
+     * @dev Depending on the transaction type, it decodes the data and emits a {SubmitTransaction} event. Once submitted the transaction gets directly confirmed for that owner by calling the confirmTransaction funcion.
+     * @param _transactionType The type of the transaction.
      * @param _to The address to send the transaction to.
-     * @param _value The amount of Ether to send.
-     * @param _data The data to send with the transaction.
+     * @param _value The amount of Ether to send (if applicable).
+     * @param _data The data payload of the transaction.
      */
     function submitTransaction(
         TransactionType _transactionType,
@@ -228,7 +308,8 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
     }
 
     /**
-     * @dev Confirms a submitted transaction.
+     * @notice Confirms a submitted transaction.
+     * @dev Increments the confirmation count and executes the transaction if enough confirmations are reached.
      * @param _txIndex The index of the transaction to confirm.
      */
     function confirmTransaction(
@@ -255,9 +336,11 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
     }
 
     /**
-     * @dev Executes a confirmed transaction.
+     * @notice Executes a confirmed transaction.
+     * @dev Performs the actual transaction based on its type and marks it as inactive after execution. For adding or removing multisig owners, the respective internal function get called.
      * @param _txIndex The index of the transaction to execute.
      */
+
     function executeTransaction(
         uint256 _txIndex
     )
@@ -322,9 +405,11 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
     }
 
     /**
-     * @dev Revokes a confirmation for a transaction.
+     * @notice Revokes a confirmation for a transaction.
+     * @dev Decrements the confirmation count.
      * @param _txIndex The index of the transaction to revoke confirmation for.
      */
+
     function revokeConfirmation(
         uint256 _txIndex
     ) public onlyMultisigOwner txExists(_txIndex) isActive(_txIndex) {
@@ -340,6 +425,12 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         emit RevokeConfirmation(msg.sender, _txIndex);
     }
 
+    /**
+     * @notice Submits a transaction to send Ether to a specified address.
+     * @dev Utilizes {submitTransaction} with `TransactionType.ETH`.
+     * @param _to The recipient address.
+     * @param _amount The amount of Ether to send (in Wei).
+     */
     function sendETH(address _to, uint256 _amount) public onlyMultisigOwner {
         require(_to != address(0), "MultisigWallet: receiver address required");
         require(_amount > 0, "MultisigWallet: Ether (Wei) amount required");
@@ -347,10 +438,10 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
     }
 
     /**
-     * @dev Adds a new multisig owner. This function needs to be confirmed by the required number of owners.
-     * @param _newOwner The address of the new owner.
+     * @notice Adds a new owner to the multisig wallet.
+     * @dev Submits a transaction of type `AddOwner` which requires confirmations.
+     * @param _newOwner The address of the new owner to be added.
      */
-
     function addOwner(address _newOwner) public onlyMultisigOwner {
         require(
             _newOwner != address(0),
@@ -361,8 +452,10 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
     }
 
     /**
-     * @dev Internal function to add a new owner. Should only be called via a confirmed transaction.
-     * @param _newOwner The address of the new owner.
+     * @notice Internal function to add a new owner after sufficient confirmations.
+     * @dev Adds the new owner, updates mappings, and emits an {OwnerAdded} event.
+     * @param _newOwner The address of the new owner to be added.
+     * @param _txIndex The index of the transaction that triggered the addition.
      */
     function addOwnerInternal(
         address _newOwner,
@@ -389,8 +482,9 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
     }
 
     /**
-     * @dev Removes a multisig owner. This function needs to be confirmed by the required number of owners.
-     * @param _owner The address of the owner to remove.
+     * @notice Removes an existing owner from the multisig wallet.
+     * @dev Submits a transaction of type `RemoveOwner` which requires confirmations.
+     * @param _owner The address of the owner to be removed.
      */
     function removeOwner(address _owner) public onlyMultisigOwner {
         require(
@@ -402,8 +496,10 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
     }
 
     /**
-     * @dev Internal function to remove an owner. Should only be called via a confirmed transaction.
-     * @param _owner The address of the owner to remove.
+     * @notice Internal function to remove an owner after sufficient confirmations.
+     * @dev Removes the owner, updates mappings, and emits an {OwnerRemoved} event.
+     * @param _owner The address of the owner to be removed.
+     * @param _txIndex The index of the transaction that triggered the removal.
      */
     function removeOwnerInternal(
         address _owner,
@@ -437,7 +533,13 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         emit OwnerRemoved(_owner);
     }
 
-    // Safe ERC20 transfer function
+    /**
+     * @notice Submits a transaction to safely transfer ERC20 tokens.
+     * @dev Encodes the ERC20 `transfer` function call and submits it as a transaction.
+     * @param _token The ERC20 token contract.
+     * @param _to The recipient address.
+     * @param _amount The amount of tokens to transfer.
+     */
     function safeTransferERC20(
         IERC20 _token,
         address _to,
@@ -459,7 +561,14 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         submitTransaction(TransactionType.ERC20, address(_token), 0, data);
     }
 
-    // Safe ERC20 transferFrom function
+    /**
+     * @notice Submits a transaction to safely transfer ERC20 tokens using `transferFrom`.
+     * @dev Encodes the ERC20 `transferFrom` function call and submits it as a transaction.
+     * @param _token The ERC20 token contract.
+     * @param _from The address from which tokens will be transferred.
+     * @param _to The recipient address.
+     * @param _amount The amount of tokens to transfer.
+     */
     function safeTransferFromERC20(
         IERC20 _token,
         address _from,
@@ -488,10 +597,12 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
     }
 
     /**
-     * @dev Submits a transaction to transfer ERC721 tokens.
-     * @param _token The address of the ERC721 token contract.
-     * @param _to The address to send the token to.
-     * @param _tokenId The ID of the token to send.
+     * @notice Submits a transaction to transfer an ERC721 token.
+     * @dev Encodes the ERC721 `safeTransferFrom` function call and submits it as a transaction.
+     * @param _token The ERC721 token contract.
+     * @param _from The current owner of the token.
+     * @param _to The recipient address.
+     * @param _tokenId The ID of the token to transfer.
      */
     function transferERC721(
         address _token,
@@ -518,6 +629,11 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         submitTransaction(TransactionType.ERC721, _token, 0, data);
     }
 
+    /**
+     * @notice Deactivates all pending (active) transactions.
+     * @dev Iterates through all transactions and marks them as inactive.
+     * Emits a {PendingTransactionsDeactivated} event upon completion.
+     */
     function deactivatePendingTransactions() internal {
         uint256 length = transactions.length;
         for (uint256 i = 0; i < length; ) {
@@ -532,6 +648,11 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         emit PendingTransactionsDeactivated();
     }
 
+    /**
+     * @notice Allows an owner to deactivate their own pending transaction.
+     * @dev Marks the specified transaction as inactive if it was submitted by the caller.
+     * @param _txIndex The index of the transaction to deactivate.
+     */
     function deactivateMyPendingTransaction(
         uint _txIndex
     ) public txExists(_txIndex) isActive(_txIndex) onlyMultisigOwner {
@@ -546,6 +667,13 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         emit DeactivatedMyPendingTransaction(_txIndex, msg.sender);
     }
 
+    /**
+     * @notice Checks if a transaction has received enough confirmations to be executed.
+     * @dev The required number of confirmations varies based on the transaction type.
+     * @param numConfirmations The current number of confirmations.
+     * @param transactionType The type of the transaction.
+     * @return True if the transaction has enough confirmations, false otherwise.
+     */
     function hasEnoughConfirmations(
         uint64 numConfirmations,
         TransactionType transactionType
@@ -562,6 +690,15 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         }
     }
 
+
+    /**
+     * @notice Decodes the transaction data based on the transaction type.
+     * @dev Extracts relevant parameters from the data payload for ERC20 and ERC721 transactions.
+     * @param transactionType The type of the transaction.
+     * @param data The data payload of the transaction.
+     * @return to The recipient address extracted from the data.
+     * @return amountOrTokenId The amount of tokens or token ID extracted from the data.
+     */
     function decodeTransactionData(
         TransactionType transactionType,
         bytes memory data
@@ -603,7 +740,15 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         }
     }
 
-    // IERC721Receiver implementation
+    /**
+     * @notice Handles the receipt of an ERC721 token.
+     * @dev This function is called whenever an ERC721 `safeTransfer` is performed to this contract.
+     * @param operator The address which called `safeTransfer`.
+     * @param from The address which previously owned the token.
+     * @param tokenId The NFT identifier which is being transferred.
+     * @param data Additional data with no specified format.
+     * @return bytes4 Returns `IERC721Receiver.onERC721Received.selector`.
+     */
     function onERC721Received(
         address /*operator*/,
         address /*from*/,
@@ -613,11 +758,20 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         return this.onERC721Received.selector;
     }
 
+
+    /**
+     * @notice Retrieves the total number of owners.
+     * @return ownerCount The number of current owners in the multisig wallet.
+     */
     function getOwnerCount() public view returns (uint256) {
         uint256 ownerCount = owners.length;
         return ownerCount;
     }
 
+    /**
+     * @notice Retrieves the list of all owners.
+     * @return ownersList An array containing the addresses of all current owners.
+     */
     function getOwners() public view returns (address[] memory) {
         return owners;
     }
