@@ -265,7 +265,7 @@ contract MultisigWalletTest is Test {
             owner1
         );
         vm.prank(owner1);
-        multisigWallet.safeTransferERC20(
+        multisigWallet.transferERC20(
             IERC20(address(erc20Token)),
             recipient,
             amount
@@ -324,7 +324,7 @@ contract MultisigWalletTest is Test {
             owner1
         );
         vm.prank(owner1);
-        multisigWallet.safetransferFromERC721(
+        multisigWallet.safeTransferFromERC721(
             address(erc721Token),
             address(multisigWallet),
             recipient,
@@ -1280,7 +1280,7 @@ contract MultisigWalletTest is Test {
 
         // **Step 8: Submit the ERC20 Transfer Transaction**
         vm.prank(dynamicOwners[0]); // Initiate from the first owner
-        multisigWallet.safeTransferERC20(
+        multisigWallet.transferERC20(
             IERC20(address(dynamicERC20)),
             recipient,
             transferAmount
@@ -1383,9 +1383,9 @@ contract MultisigWalletTest is Test {
             dynamicOwners[0] // Initiator
         );
 
-        // **Step 9: Submit the Transaction via safetransferFromERC721**
+        // **Step 9: Submit the Transaction via transferERC721**
         vm.prank(dynamicOwners[0]); // Initiate from the first owner
-        multisigWallet.safetransferFromERC721(
+        multisigWallet.safeTransferFromERC721(
             address(dynamicERC721),
             address(multisigWallet),
             recipient,

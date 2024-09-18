@@ -7,7 +7,6 @@ pragma solidity ^0.8.7;
 
 import "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "openzeppelin-contracts/contracts/token/ERC721/IERC721.sol";
 import "openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol";
 
@@ -16,8 +15,6 @@ import "openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol";
  * @dev A multisig wallet contract that requires multiple confirmations for transactions, including managing owners.
  */
 contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
-    using SafeERC20 for IERC20;
-
     /**
      * @notice Emitted when a deposit is made.
      * @param sender The address that sent the deposit.
@@ -548,13 +545,13 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
     }
 
     /**
-     * @notice Submits a transaction to safely transfer ERC20 tokens.
+     * @notice Submits a transaction to transfer ERC20 tokens.
      * @dev Encodes the ERC20 `transfer` function call and submits it as a transaction.
      * @param _token The ERC20 token contract.
      * @param _to The recipient address.
      * @param _amount The amount of tokens to transfer.
      */
-    function safeTransferERC20(
+    function transferERC20(
         IERC20 _token,
         address _to,
         uint256 _amount
@@ -576,14 +573,14 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
     }
 
     /**
-     * @notice Submits a transaction to safely transfer ERC20 tokens using `transferFrom`.
+     * @notice Submits a transaction to transfer ERC20 tokens using `transferFrom`.
      * @dev Encodes the ERC20 `transferFrom` function call and submits it as a transaction.
      * @param _token The ERC20 token contract.
      * @param _from The address from which tokens will be transferred.
      * @param _to The recipient address.
      * @param _amount The amount of tokens to transfer.
      */
-    function safeTransferFromERC20(
+    function transferFromERC20(
         IERC20 _token,
         address _from,
         address _to,
@@ -618,7 +615,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      * @param _to The recipient address.
      * @param _tokenId The ID of the token to transfer.
      */
-    function safetransferFromERC721(
+    function safeTransferFromERC721(
         address _token,
         address _from,
         address _to,

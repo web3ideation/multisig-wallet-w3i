@@ -88,9 +88,11 @@ Find out why saving, formatting and auto error checks (these red lines) are so s
 Add licence files ✅
 use .env for privatekey und so ✅
 checked .gitignore ✅
-➡️ natspec nochmal machen lassen weil ich ja sachen geändert hatte
+multisigWallet.sol natspec nochmal machen lassen weil ich ja sachen geändert hatte ✅
 
-test receive erc20 and erc721 and the emitted event for receiving
+➡️ test receive erc20 and erc721 and the emitted event for receiving
+
+test natspec machen lassen
 
 how about ERC777 and other token standards?
 
