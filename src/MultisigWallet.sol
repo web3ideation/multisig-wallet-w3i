@@ -116,6 +116,20 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
     );
 
     /**
+     * @notice Emitted when the contract receives an ERC721 token.
+     * @param operator The address which initiated the transfer (i.e., msg.sender).
+     * @param from The address which previously owned the token.
+     * @param tokenId The identifier of the token being transferred.
+     * @param data Additional data with no specified format.
+     */
+    event ERC721Received(
+        address indexed operator,
+        address indexed from,
+        uint256 indexed tokenId,
+        bytes data
+    );
+
+    /**
      * @enum TransactionType
      * @dev Represents the type of transaction in the multisig wallet.
      * @param ETH Ether transfer.
@@ -604,7 +618,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      * @param _to The recipient address.
      * @param _tokenId The ID of the token to transfer.
      */
-    function transferERC721(
+    function safetransferFromERC721(
         address _token,
         address _from,
         address _to,
@@ -690,7 +704,6 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         }
     }
 
-
     /**
      * @notice Decodes the transaction data based on the transaction type.
      * @dev Extracts relevant parameters from the data payload for ERC20 and ERC721 transactions.
@@ -743,21 +756,24 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
     /**
      * @notice Handles the receipt of an ERC721 token.
      * @dev This function is called whenever an ERC721 `safeTransfer` is performed to this contract.
-     * @param operator The address which called `safeTransfer`.
+     * It must return the function selector to confirm the token transfer.
+     * If any other value is returned or the interface is not implemented, the transfer will be reverted.
+     * @param operator The address which called `safeTransferFrom`.
      * @param from The address which previously owned the token.
      * @param tokenId The NFT identifier which is being transferred.
      * @param data Additional data with no specified format.
-     * @return bytes4 Returns `IERC721Receiver.onERC721Received.selector`.
+     * @return bytes4 Returns `IERC721Receiver.onERC721Received.selector` to confirm the token transfer.
      */
+
     function onERC721Received(
-        address /*operator*/,
-        address /*from*/,
-        uint256 /*tokenId*/,
-        bytes calldata /*data*/
-    ) external pure override returns (bytes4) {
+        address operator,
+        address from,
+        uint256 tokenId,
+        bytes calldata data
+    ) external override returns (bytes4) {
+        emit ERC721Received(operator, from, tokenId, data);
         return this.onERC721Received.selector;
     }
-
 
     /**
      * @notice Retrieves the total number of owners.
