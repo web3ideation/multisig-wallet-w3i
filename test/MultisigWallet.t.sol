@@ -1661,6 +1661,51 @@ contract MultisigWalletTest is Test {
             "Token ownership not transferred correctly"
         );
     }
+
+    function testReceiveERC20Tokens() public {
+        // Arrange
+        address sender = owner1;
+        uint256 transferAmount = 500 * 10 ** 18; // 500 ERC20 tokens
+
+        // **Transfer tokens to sender (owner1)**
+        bool success = erc20Token.transfer(sender, transferAmount);
+        require(success, "ERC20 transfer to sender failed");
+
+        uint256 initialWalletBalance = erc20Token.balanceOf(
+            address(multisigWallet)
+        );
+
+        // Ensure the sender has enough tokens
+        uint256 senderBalance = erc20Token.balanceOf(sender);
+        assertGe(
+            senderBalance,
+            transferAmount,
+            "Sender does not have enough ERC20 tokens"
+        );
+
+        // Act: Transfer ERC20 tokens to the MultisigWallet
+        vm.prank(sender);
+        success = erc20Token.transfer(address(multisigWallet), transferAmount);
+        require(success, "ERC20 transfer failed");
+
+        // Assert: Check that the MultisigWallet's ERC20 balance has increased by transferAmount
+        uint256 finalWalletBalance = erc20Token.balanceOf(
+            address(multisigWallet)
+        );
+        assertEq(
+            finalWalletBalance,
+            initialWalletBalance + transferAmount,
+            "ERC20 tokens not received correctly by MultisigWallet"
+        );
+
+        // Optionally, verify that the sender's balance has decreased by transferAmount
+        uint256 finalSenderBalance = erc20Token.balanceOf(sender);
+        assertEq(
+            senderBalance - finalSenderBalance,
+            transferAmount,
+            "Sender's ERC20 balance did not decrease correctly"
+        );
+    }
 }
 
 // Malicious contract that attempts a reentrancy attack

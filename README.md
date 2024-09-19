@@ -90,9 +90,9 @@ use .env for privatekey und so ✅
 checked .gitignore ✅
 multisigWallet.sol natspec nochmal machen lassen weil ich ja sachen geändert hatte ✅
 
-➡️ test receive erc20 and erc721 and the emitted event for receiving
+test receive erc20 and erc721 and the emitted event for receiving ✅
 
-licence files niklas vergleichen
+➡️ licence files niklas vergleichen
 
 todo extension finden die relative code zeilen bezüge unterstütz
 
