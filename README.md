@@ -92,9 +92,11 @@ multisigWallet.sol natspec nochmal machen lassen weil ich ja sachen geändert ha
 
 ➡️ test receive erc20 and erc721 and the emitted event for receiving
 
-test natspec machen lassen
+licence files niklas vergleichen
 
-how about ERC777 and other token standards?
+todo extension finden die relative code zeilen bezüge unterstütz
+
+test natspec machen lassen
 
 - "Please evaluate my tests critically if they make sense or if they are bent in a way that they actually cover up issues with my smart contract" - extensives testscript und fuzzing schreiben (das testscript was ich aktuell habe verstehe ich nicht 100% also sicher gehen dass ich keinen scheiß teste) (Add more edge case tests, particularly around owner management and transaction execution. ; Add tests for potential malicious scenarios to ensure the contract is secure against various attack vectors. ; 1. testFailAddExistingOwner() The failure in testFailAddExistingOwner() suggests that either:
   The contract allows adding an existing owner, which it shouldn't, or The test might be incorrectly asserting the behavior.)
@@ -103,6 +105,10 @@ how about ERC777 and other token standards?
 Testnet tests (deployscript schreiben)
 
 CI workflow run CI: All jobs have failed
+
+how about ERC777 and other token standards? How about implementing safeTransfer for ERC20 tokens?
+
+Cyphrin nach audit fragen (wie sind die kosten?)
 
 -
 -

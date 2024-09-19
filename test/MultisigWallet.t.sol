@@ -55,6 +55,13 @@ contract MultisigWalletTest is Test {
 
     event PendingTransactionsDeactivated();
 
+    event ERC721Received(
+        address indexed operator,
+        address indexed from,
+        uint256 indexed tokenId,
+        bytes data
+    );
+
     function setUp() public {
         owners = [owner1, owner2, owner3, owner4, owner5];
         twoOwners = [owner1, owner2];
@@ -1622,6 +1629,37 @@ contract MultisigWalletTest is Test {
         vm.expectRevert("MultisigWallet: external call failed");
         vm.prank(owner3);
         multisigWallet.confirmTransaction(0);
+    }
+
+    function testOnERC721Received() public {
+        // Arrange
+        address from = owner2; // The current owner of the token
+        uint256 tokenId = 3; // Use a unique tokenId
+        bytes memory data = "some data";
+
+        // Mint a token to 'from' (owner2)
+        // 'address(this)' is the owner of the SimpleERC721 contract in this test context
+        erc721Token.mint(from, tokenId);
+
+        // Expect the ERC721Received event to be emitted when the token is received
+        vm.expectEmit(true, true, true, true);
+        emit ERC721Received(from, from, tokenId, data);
+
+        // Act: Transfer the token from 'from' to the multisig wallet
+        vm.prank(from); // Sets msg.sender to 'from', making 'from' the operator
+        erc721Token.safeTransferFrom(
+            from,
+            address(multisigWallet),
+            tokenId,
+            data
+        );
+
+        // Assert: Verify that the multisig wallet now owns the token
+        assertEq(
+            erc721Token.ownerOf(tokenId),
+            address(multisigWallet),
+            "Token ownership not transferred correctly"
+        );
     }
 }
 
