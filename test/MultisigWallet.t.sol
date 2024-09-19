@@ -1591,7 +1591,7 @@ contract MultisigWalletTest is Test {
 
     // 6. Test Reentrancy and Security Guards
 
-    function testReentrancyProtection() public {
+    function testReentrancyAtttackOnConfirmTransation() public {
         // Deploy a malicious contract that attempts to re-enter
         MaliciousContract attacker = new MaliciousContract(
             payable(address(multisigWallet)) // Cast to payable
@@ -1611,6 +1611,30 @@ contract MultisigWalletTest is Test {
         // Expect reentrancy guard to prevent the attack
         vm.expectRevert("MultisigWallet: external call failed");
         vm.prank(owner3);
+        multisigWallet.confirmTransaction(0);
+    }
+
+    function testReentrancyAttackOnExecuteTransaction() public {
+        // Deploy the malicious contract
+        MaliciousReentrantExecutor attacker = new MaliciousReentrantExecutor(
+            multisigWallet
+        );
+
+        // Fund the multisig wallet
+        vm.deal(address(multisigWallet), 10 ether);
+
+        // Have the multisig owners submit and confirm a transaction to send ETH to the attacker
+        vm.prank(owner1);
+        multisigWallet.sendETH(address(attacker), 1 ether);
+
+        for (uint i = 1; i < owners.length / 2; i++) {
+            vm.prank(owners[i]);
+            multisigWallet.confirmTransaction(0);
+        }
+
+        // Final confirmation and attempt to execute, which should trigger the reentrancy attack
+        vm.prank(owners[owners.length / 2]);
+        vm.expectRevert("MultisigWallet: external call failed");
         multisigWallet.confirmTransaction(0);
     }
 
@@ -1702,6 +1726,20 @@ contract MaliciousContract {
     receive() external payable {
         // Attempt to re-enter the executeTransaction function
         target.confirmTransaction(0);
+    }
+}
+
+// Malicious contract attempting to re-enter executeTransaction
+contract MaliciousReentrantExecutor {
+    MultisigWallet public target;
+
+    constructor(MultisigWallet _target) {
+        target = _target;
+    }
+
+    receive() external payable {
+        // Attempt to re-enter executeTransaction
+        target.executeTransaction(0);
     }
 }
 
