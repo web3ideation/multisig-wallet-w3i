@@ -1713,6 +1713,28 @@ contract MultisigWalletTest is Test {
             "Sender's ERC20 balance did not decrease correctly"
         );
     }
+
+    function testSendETHToZeroAddressReverts() public {
+        vm.prank(owner1);
+        vm.expectRevert("MultisigWallet: receiver address required");
+        multisigWallet.sendETH(address(0), 1 ether);
+    }
+
+    function testTransferERC20ZeroAmountReverts() public {
+        vm.prank(owner1);
+        vm.expectRevert("MultisigWallet: token amount required");
+        multisigWallet.transferERC20(
+            IERC20(address(erc20Token)),
+            address(0x123),
+            0
+        );
+    }
+
+    function testNonOwnerCannotSubmitTransaction() public {
+        vm.prank(nonOwner);
+        vm.expectRevert("MultisigWallet: Not a multisig owner");
+        multisigWallet.sendETH(owner2, 1 ether);
+    }
 }
 
 // Malicious contract that attempts a reentrancy attack
