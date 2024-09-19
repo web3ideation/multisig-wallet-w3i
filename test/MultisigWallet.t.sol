@@ -27,7 +27,11 @@ contract MultisigWalletTest is Test {
     address public owner5 = address(5);
     address public nonOwner = address(1000);
 
-    event Deposit(address indexed sender, uint256 amount, uint256 balance);
+    event Deposit(
+        address indexed sender,
+        uint256 indexed amount,
+        uint256 indexed balance
+    );
     event SubmitTransaction(
         MultisigWallet.TransactionType indexed _transactionType,
         uint256 indexed txIndex,

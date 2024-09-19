@@ -23,8 +23,8 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      */
     event Deposit(
         address indexed sender,
-        uint256 amountOrTokenId,
-        uint256 balance
+        uint256 indexed amountOrTokenId,
+        uint256 indexed balance
     );
 
     /**
