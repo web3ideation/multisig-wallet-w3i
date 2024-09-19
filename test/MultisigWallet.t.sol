@@ -407,36 +407,28 @@ contract MultisigWalletTest is Test {
         assertEq(address(0x123).balance, 0);
     }
 
-    function testFailExecuteWithInsufficientConfirmations() public {
-        // !!! double check this with the "Fail" in the name maybe the test is not working correctly
+    function testExecuteWithoutEnoughConfirmations2() public {
         address payable recipient = payable(address(0x123));
         uint256 amount = 1 ether;
 
         vm.prank(owner1);
-        multisigWallet.submitTransaction(
-            MultisigWallet.TransactionType.ETH,
-            recipient,
-            amount,
-            ""
-        );
+        multisigWallet.sendETH(recipient, amount);
 
-        for (uint i = 0; i < owners.length / 2; i++) {
+        // Confirm with less than required confirmations
+        for (uint i = 1; i < owners.length / 2; i++) {
             vm.prank(owners[i]);
             multisigWallet.confirmTransaction(0);
         }
 
-        assertEq(recipient.balance, 0);
-        assertEq(address(multisigWallet).balance, INITIAL_BALANCE);
-
-        vm.expectRevert("Not enough confirmations");
+        // Attempt to execute the transaction
         vm.prank(owners[owners.length / 2]);
-        multisigWallet.confirmTransaction(0);
-
-        assertEq(recipient.balance, 0);
-        assertEq(address(multisigWallet).balance, INITIAL_BALANCE);
+        vm.expectRevert(
+            "MultisigWallet: insufficient confirmations to execute"
+        );
+        multisigWallet.executeTransaction(0);
     }
 
-    function testGetOwners() public {
+    function testGetOwners() public view {
         address[] memory currentOwners = multisigWallet.getOwners();
         assertEq(currentOwners.length, 5);
         for (uint i = 0; i < 5; i++) {
@@ -552,32 +544,23 @@ contract MultisigWalletTest is Test {
         multisigWallet.addOwner(address(0x123));
     }
 
-    function testFailRemoveLastOwner() public {
-        // so is the "fail" keyword here a problem?
+    function testCannotRemoveLastOwnerAfterRemovals() public {
+        // Initialize the multisig wallet with two owners
+        multisigWallet = new MultisigWallet(twoOwners);
 
-        // Remove all owners except two
-        for (uint i = 2; i < owners.length; i++) {
-            vm.prank(owner1);
-            multisigWallet.removeOwner(owners[i]);
-
-            for (uint j = 0; j < (owners.length * 2 + 2) / 3; j++) {
-                vm.prank(owners[j]);
-                multisigWallet.confirmTransaction(i - 2);
-            }
-        }
-
-        // Try to remove the second-to-last owner
+        // Remove owner2
         vm.prank(owner1);
         multisigWallet.removeOwner(owner2);
 
-        for (uint j = 0; j < (owners.length * 2 + 2) / 3; j++) {
-            vm.prank(owners[j]);
-            multisigWallet.confirmTransaction(owners.length - 2);
-        }
+        uint txIndex = 0; // Since it's the first transaction
 
-        // Try to remove the last owner (should fail)
+        // Confirm the transaction with owner2
+        vm.prank(owner2);
+        multisigWallet.confirmTransaction(txIndex);
+
+        // Now, only owner1 remains. Attempt to remove owner1
         vm.prank(owner1);
-        vm.expectRevert("Cannot remove last owner");
+        vm.expectRevert("MultisigWallet: cannot remove the last owner");
         multisigWallet.removeOwner(owner1);
     }
 
