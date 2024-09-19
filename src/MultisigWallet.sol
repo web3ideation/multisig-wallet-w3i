@@ -380,6 +380,10 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         } else if (txType == TransactionType.RemoveOwner) {
             removeOwnerInternal(to, _txIndex);
         } else {
+            require(
+                to != address(this),
+                "MultisigWallet: cannot call internal functions"
+            );
             (bool success, ) = to.call{value: value}(data);
             require(success, "MultisigWallet: external call failed");
         }

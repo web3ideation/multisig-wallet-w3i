@@ -1028,7 +1028,7 @@ contract MultisigWalletTest is Test {
         // Owner3 attempts to confirm the transaction, which should trigger execution
         // Since the transaction type is "Other" and only >50% confirmations are met,
         // executeTransaction will attempt to call addOwner, which should fail
-        vm.expectRevert("MultisigWallet: external call failed");
+        vm.expectRevert("MultisigWallet: cannot call internal functions");
         vm.expectEmit(true, true, false, true);
         emit ConfirmTransaction(owner3, 0);
         vm.prank(owner3);
@@ -1091,7 +1091,7 @@ contract MultisigWalletTest is Test {
         // Owner3 attempts to confirm the transaction, which should trigger execution
         // Since the transaction type is "Other" and only >50% confirmations are met,
         // executeTransaction will attempt to call removeOwner, which should fail
-        vm.expectRevert("MultisigWallet: external call failed"); // Expect the execution to revert
+        vm.expectRevert("MultisigWallet: cannot call internal functions"); // Expect the execution to revert
         vm.expectEmit(true, true, false, true);
         emit ConfirmTransaction(owner3, 0);
         vm.prank(owner3);
