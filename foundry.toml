@@ -9,3 +9,6 @@ libs = ["lib"]
 
 [dependencies]
 openzeppelin-contracts = "x.x.x"  # specify the version
+
+[profile.sepolia]
+rpc_url = "${SEPOLIA_RPC_URL}"

@@ -96,13 +96,20 @@ test natspec machen lassen ✅
 
 licence files niklas vergleichen ✅
 
-➡️ - "Please evaluate my tests critically if they make sense or if they are bent in a way that they actually cover up issues with my smart contract" - extensives testscript und fuzzing schreiben (das testscript was ich aktuell habe verstehe ich nicht 100% also sicher gehen dass ich keinen scheiß teste) (Add more edge case tests, particularly around owner management and transaction execution. ; Add tests for potential malicious scenarios to ensure the contract is secure against various attack vectors. ; 1. testFailAddExistingOwner() The failure in testFailAddExistingOwner() suggests that either:
-The contract allows adding an existing owner, which it shouldn't, or The test might be incorrectly asserting the behavior.)
-doublecheck that if a multisigowner gets deleted that the numconfirmation gets reduced in case otherwise there would be more confirmations required than multisigowners exist.
+- "Please evaluate my tests critically if they make sense or if they are bent in a way that they actually cover up issues with my smart contract" - extensives testscript und fuzzing schreiben (das testscript was ich aktuell habe verstehe ich nicht 100% also sicher gehen dass ich keinen scheiß teste) (Add more edge case tests, particularly around owner management and transaction execution. ; Add tests for potential malicious scenarios to ensure the contract is secure against various attack vectors. ; 1. testFailAddExistingOwner() The failure in testFailAddExistingOwner() suggests that either:
+  The contract allows adding an existing owner, which it shouldn't, or The test might be incorrectly asserting the behavior.)
+  doublecheck that if a multisigowner gets deleted that the numconfirmation gets reduced in case otherwise there would be more confirmations required than multisigowners exist. ✅
 
-Testnet tests (deployscript schreiben)
+➡️ Testnet tests (deployscript schreiben)
+Deployed at 0x205750B139d821A87caBD52757be99DC92FF07D0
 
-Mainnet deploy
+_Mainnet deploy_
+
+---
+
+.
+.
+.
 
 CI workflow run CI: All jobs have failed
 
