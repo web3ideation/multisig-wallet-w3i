@@ -8,7 +8,10 @@ libs = ["lib"]
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
 
 [dependencies]
-openzeppelin-contracts = "x.x.x"  # specify the version
+openzeppelin-contracts = "5.0.2"
 
 [profile.sepolia]
 rpc_url = "${SEPOLIA_RPC_URL}"
+
+[profile.env]
+PRIVATE_KEY = "PRIVATE_KEY"
