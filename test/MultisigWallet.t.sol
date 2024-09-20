@@ -2078,6 +2078,47 @@ contract MultisigWalletTest is Test {
             INITIAL_BALANCE + depositAmount
         );
     }
+
+    /**
+     * @notice Tests that the required number of confirmations adjusts when an owner is removed.
+     * @dev Verifies that if a multisig owner is deleted, the number of required confirmations is reduced accordingly.
+     */
+    function testNumConfirmationsReducedAfterOwnerRemoval() public {
+        // Step 1: Submit a transaction from owner1
+        vm.prank(owner1);
+        multisigWallet.sendETH(address(0x123), 1 ether);
+
+        // Step 2: Confirm the transaction from owner2
+        vm.prank(owner2);
+        multisigWallet.confirmTransaction(0);
+
+        // Step 3: Remove owner3 before reaching the required confirmations
+        vm.prank(owner1);
+        multisigWallet.removeOwner(owner3);
+
+        // Step 4: Check that the number of confirmations required has reduced
+        // Before removal: (owners.length * 2 + 2) / 3 confirmations
+        // After removal, with one fewer owner, the number of required confirmations should decrease
+        uint256 requiredConfirmationsBeforeRemoval = (owners.length * 2 + 2) /
+            3;
+        uint256 requiredConfirmationsAfterRemoval = ((owners.length - 1) *
+            2 +
+            2) / 3;
+
+        // Assert that the number of confirmations required has been reduced after owner removal
+        assertLt(
+            requiredConfirmationsAfterRemoval,
+            requiredConfirmationsBeforeRemoval,
+            "Confirmations did not reduce after owner removal"
+        );
+
+        // Step 5: Complete the transaction by confirming with another owner
+        vm.prank(owner4);
+        multisigWallet.confirmTransaction(0);
+
+        // Check that the transaction was executed
+        assertEq(address(0x123).balance, 1 ether);
+    }
 }
 
 // Malicious contract that attempts a reentrancy attack
