@@ -100,8 +100,12 @@ licence files niklas vergleichen ✅
   The contract allows adding an existing owner, which it shouldn't, or The test might be incorrectly asserting the behavior.)
   doublecheck that if a multisigowner gets deleted that the numconfirmation gets reduced in case otherwise there would be more confirmations required than multisigowners exist. ✅
 
-➡️ Testnet tests (deployscript schreiben)
-Deployed at 0x205750B139d821A87caBD52757be99DC92FF07D0
+Testnet tests:
+deployscript für multisigWallet schreiben #Deployed at 0x205750B139d821A87caBD52757be99DC92FF07D0 ✅
+deployscript für simpleERC20 schreiben #Deployed at 0xbD89C92329E24a6abdE36e3aa44F17B396d62422 ✅
+deployscript für simpleERC721 schreiben #Deployed at 0x76590a96a63688Ad1c7422fbAa6EFB66C9ba176a ✅
+➡️ stagetest schreiben - "how to run stage tests with foundry on the sepolia testnet" Googeln / cyfrin
+tests validieren
 
 _Mainnet deploy_
 

@@ -24,4 +24,4 @@ contract DeployMultisigWallet is Script {
     }
 }
 
-// to deplooy run: forge script script/DeployMultisigWalletSepolia.s.sol --rpc-url $SEPOLIA_RPC_URL --broadcast --private-key $PRIVATE_KEY --etherscan-api-key $ETHERSCAN_API_KEY --verify
+// to deploy run: forge script script/DeployMultisigWalletSepolia.s.sol --rpc-url $SEPOLIA_RPC_URL --broadcast --private-key $PRIVATE_KEY --etherscan-api-key $ETHERSCAN_API_KEY --verify
