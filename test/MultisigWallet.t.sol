@@ -765,6 +765,35 @@ contract MultisigWalletTest is Test {
     }
 
     /**
+     * @notice Tests the behavior of deactivateMyPendingTransaction.
+     * @dev Ensures that only the transaction submitter can deactivate their pending transaction.
+     */
+    function testDeactivateMyPendingTransaction() public {
+        // Owner1 submits a transaction
+        vm.prank(owner1);
+        multisigWallet.sendETH(address(0x123), 1 ether);
+
+        // Confirm that the transaction is active
+        (, bool isActive, , , , , ) = multisigWallet.transactions(0);
+        assertTrue(isActive, "Transaction should initially be active");
+
+        // Owner2 tries to deactivate the transaction submitted by Owner1
+        vm.prank(owner2);
+        vm.expectRevert(
+            "MultisigWallet: only the owner can clear their submitted transaction"
+        );
+        multisigWallet.deactivateMyPendingTransaction(0);
+
+        // Owner1 deactivates their own transaction
+        vm.prank(owner1);
+        multisigWallet.deactivateMyPendingTransaction(0);
+
+        // Verify that the transaction is now inactive
+        (, isActive, , , , , ) = multisigWallet.transactions(0);
+        assertFalse(isActive, "Transaction should now be inactive");
+    }
+
+    /**
      * @notice Tests adding an owner with a dynamic number of required confirmations.
      * @dev Verifies that adding a new owner with a large number of existing owners works as expected.
      */
