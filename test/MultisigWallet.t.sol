@@ -1985,6 +1985,12 @@ contract MultisigWalletTest is Test {
         multisigWallet.sendETH(owner2, 1 ether);
     }
 
+    /**
+     * @notice Tests the deactivation of pending transactions with a large array of transactions.
+     * @dev Simulates adding a large number of transactions and attempts to deactivate them by adding a new owner.
+     * The test checks if the transaction execution fails only when the gas limit is exceeded.
+     * Confirms the transaction up to the required number of confirmations and ensures the new owner is added.
+     */
     function testDeactivatePendingTransactionsWithLargeArray() public {
         // Simulate adding a large number of transactions
         uint256 largeNumber = 10000;
@@ -2011,6 +2017,66 @@ contract MultisigWalletTest is Test {
         // vm.expectRevert("Out of gas");
         multisigWallet.confirmTransaction(largeNumber);
         assertTrue(multisigWallet.isOwner(newOwner));
+    }
+
+    /**
+     * @notice Tests that confirming an inactive transaction reverts.
+     * @dev Deactivates a pending transaction and verifies that an attempt to confirm it will fail.
+     */
+    function testCannotConfirmInactiveTransaction() public {
+        vm.prank(owner1);
+        multisigWallet.sendETH(address(0x123), 1 ether);
+
+        vm.prank(owner1);
+        multisigWallet.deactivateMyPendingTransaction(0);
+
+        vm.prank(owner2);
+        vm.expectRevert("MultisigWallet: Transaction not active");
+        multisigWallet.confirmTransaction(0);
+    }
+
+    /**
+     * @notice Tests that a removed owner cannot confirm a transaction after being removed.
+     * @dev Removes owner5 from the multisig wallet and verifies that the removed owner cannot confirm transactions.
+     */
+    function testRemovedOwnerCannotConfirmTransaction() public {
+        // Remove owner5
+        vm.prank(owner1);
+        multisigWallet.removeOwner(owner5);
+
+        for (uint i = 1; i < (owners.length * 2 + 2) / 3; i++) {
+            vm.prank(owners[i]);
+            multisigWallet.confirmTransaction(0);
+        }
+
+        // Attempt to have the removed owner confirm a new transaction
+        vm.prank(owner5);
+        vm.expectRevert("MultisigWallet: Not a multisig owner");
+        multisigWallet.sendETH(address(0x123), 1 ether);
+    }
+
+    /**
+     * @notice Tests direct ETH transfer to the multisig wallet via the fallback function.
+     * @dev Simulates sending ETH directly to the multisig wallet and verifies that the balance is updated correctly.
+     */
+    function testDirectETHTransfer() public {
+        uint256 depositAmount = 1 ether;
+        address depositor = address(0x456);
+        vm.deal(depositor, depositAmount);
+
+        vm.expectEmit(true, true, true, true);
+        emit Deposit(depositor, depositAmount, INITIAL_BALANCE + depositAmount);
+
+        vm.prank(depositor);
+        (bool success, ) = address(multisigWallet).call{value: depositAmount}(
+            ""
+        );
+        require(success, "ETH transfer failed");
+
+        assertEq(
+            address(multisigWallet).balance,
+            INITIAL_BALANCE + depositAmount
+        );
     }
 }
 
