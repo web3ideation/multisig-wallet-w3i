@@ -6,10 +6,22 @@ import "../src/MultisigWallet.sol";
 import "../src/SimpleERC20.sol";
 import "../src/SimpleERC721.sol";
 
+/**
+ * @title MultisigWalletTest
+ * @notice This contract tests the functionalities of the MultisigWallet contract, including owner management, ETH and token transfers, and transaction confirmation/execution processes.
+ * @dev Uses Foundry's Test contract for unit testing. The contract covers various scenarios, including dynamic confirmation requirements, edge cases for owner management, and token interactions.
+ */
 contract MultisigWalletTest is Test {
+    /// @notice The multisig wallet instance being tested.
     MultisigWallet public multisigWallet;
+
+    /// @notice The ERC20 token instance for testing ERC20 transfers.
     SimpleERC20 public erc20Token;
+
+    /// @notice The ERC721 token instance for testing ERC721 transfers.
     SimpleERC721 public erc721Token;
+
+    /// @notice Various address arrays used for different test scenarios (e.g., owners, invalid owners).
     address[] public owners;
     address[] public twoOwners;
     address[] public singleOwner;
@@ -17,9 +29,11 @@ contract MultisigWalletTest is Test {
     address[] public invalidOwners;
     address[] public duplicateOwners;
 
+    /// @notice Constant values used throughout the tests.
     uint256 public constant INITIAL_BALANCE = 10 ether;
     uint256 public constant ERC20_INITIAL_SUPPLY = 1000000 * 10 ** 18;
 
+    /// @notice Addresses representing owners and non-owners used in the tests.
     address public owner1 = address(1);
     address public owner2 = address(2);
     address public owner3 = address(3);
@@ -27,11 +41,18 @@ contract MultisigWalletTest is Test {
     address public owner5 = address(5);
     address public nonOwner = address(1000);
 
+    /**
+     * @notice Event emitted during deposit tests.
+     */
     event Deposit(
         address indexed sender,
         uint256 indexed amount,
         uint256 indexed balance
     );
+
+    /**
+     * @notice Event emitted during transaction submission.
+     */
     event SubmitTransaction(
         MultisigWallet.TransactionType indexed _transactionType,
         uint256 indexed txIndex,
@@ -42,8 +63,20 @@ contract MultisigWalletTest is Test {
         uint256 amountOrTokenId,
         address owner
     );
+
+    /**
+     * @notice Event emitted during transaction confirmation.
+     */
     event ConfirmTransaction(address indexed owner, uint256 indexed txIndex);
+
+    /**
+     * @notice Event emitted during transaction confirmation revocation.
+     */
     event RevokeConfirmation(address indexed owner, uint256 indexed txIndex);
+
+    /**
+     * @notice Event emitted during transaction execution.
+     */
     event ExecuteTransaction(
         MultisigWallet.TransactionType indexed _transactionType,
         uint256 indexed txIndex,
@@ -54,11 +87,25 @@ contract MultisigWalletTest is Test {
         uint256 amountOrTokenId,
         address owner
     );
+
+    /**
+     * @notice Event emitted when an owner is added.
+     */
     event OwnerAdded(address indexed owner);
+
+    /**
+     * @notice Event emitted when an owner is removed.
+     */
     event OwnerRemoved(address indexed owner);
 
+    /**
+     * @notice Event emitted when pending transactions are deactivated.
+     */
     event PendingTransactionsDeactivated();
 
+    /**
+     * @notice Event emitted when the contract receives an ERC721 token.
+     */
     event ERC721Received(
         address indexed operator,
         address indexed from,
@@ -66,6 +113,10 @@ contract MultisigWalletTest is Test {
         bytes data
     );
 
+    /**
+     * @notice Sets up the environment for each test.
+     * @dev Initializes owners, multisig wallet, and token contracts.
+     */
     function setUp() public {
         owners = [owner1, owner2, owner3, owner4, owner5];
         twoOwners = [owner1, owner2];
@@ -82,6 +133,10 @@ contract MultisigWalletTest is Test {
         erc721Token.mint(address(multisigWallet), 2);
     }
 
+    /**
+     * @notice Tests the deposit functionality of the multisig wallet.
+     * @dev Verifies that a deposit correctly updates the balance and emits the correct event.
+     */
     function testDeposit() public {
         uint256 depositAmount = 1 ether;
         address depositor = address(0x123);
@@ -102,6 +157,10 @@ contract MultisigWalletTest is Test {
         );
     }
 
+    /**
+     * @notice Tests the functionality of adding a new owner to the multisig wallet.
+     * @dev Verifies that adding a new owner requires the correct number of confirmations.
+     */
     function testAddOwner() public {
         address newOwner = address(0x123);
 
@@ -148,8 +207,11 @@ contract MultisigWalletTest is Test {
         assertEq(multisigWallet.getOwnerCount(), 6);
     }
 
+    /**
+     * @notice Tests the functionality of removing an owner from the multisig wallet.
+     * @dev Verifies that removing an owner requires the correct number of confirmations.
+     */
     function testRemoveOwner() public {
-        // !!! so seems like the removal of an owner already happens too early, like not all -1 owners have to confirm the removal. check that if there is a logic error in the contract
         uint256 initialOwnerCount = multisigWallet.getOwnerCount();
 
         vm.expectEmit(true, true, true, true);
@@ -171,7 +233,6 @@ contract MultisigWalletTest is Test {
             emit ConfirmTransaction(owners[i], 0);
 
             if (i * 1000 == (owners.length * 1000 * 2) / 3) {
-                // This is the last confirmation, so expect the execution events
                 vm.expectEmit(true, false, false, true);
                 emit PendingTransactionsDeactivated();
                 vm.expectEmit(true, false, false, true);
@@ -193,21 +254,22 @@ contract MultisigWalletTest is Test {
             multisigWallet.confirmTransaction(0);
         }
 
-        // Check that owner5 is no longer an owner
         assertFalse(multisigWallet.isOwner(owner5));
         assertEq(multisigWallet.getOwnerCount(), initialOwnerCount - 1);
 
-        // Check that owner5 can no longer confirm transactions
         vm.expectRevert("MultisigWallet: Not a multisig owner");
         vm.prank(owner5);
         multisigWallet.confirmTransaction(0);
 
-        // Check that trying to confirm the transaction again fails
         vm.expectRevert("MultisigWallet: Transaction not active");
         vm.prank(owners[0]);
         multisigWallet.confirmTransaction(0);
     }
 
+    /**
+     * @notice Tests the submission and confirmation of an ETH transfer transaction.
+     * @dev Verifies that an ETH transfer transaction is submitted, confirmed, and executed correctly.
+     */
     function testSubmitAndConfirmETHTransaction() public {
         address payable recipient = payable(address(0x123));
         uint256 amount = 1 ether;
@@ -258,6 +320,10 @@ contract MultisigWalletTest is Test {
         assertEq(address(multisigWallet).balance, INITIAL_BALANCE - amount);
     }
 
+    /**
+     * @notice Tests the submission and confirmation of an ERC20 token transfer transaction.
+     * @dev Verifies that an ERC20 transfer transaction is submitted, confirmed, and executed correctly.
+     */
     function testSubmitAndConfirmERC20Transaction() public {
         address recipient = address(0x123);
         uint256 amount = 100 * 10 ** 18;
@@ -312,6 +378,10 @@ contract MultisigWalletTest is Test {
         );
     }
 
+    /**
+     * @notice Tests the submission and confirmation of an ERC721 token transfer transaction.
+     * @dev Verifies that an ERC721 transfer transaction is submitted, confirmed, and executed correctly.
+     */
     function testSubmitAndConfirmERC721Transaction() public {
         address recipient = address(0x123);
         uint256 tokenId = 1;
@@ -373,6 +443,10 @@ contract MultisigWalletTest is Test {
         assertEq(erc721Token.ownerOf(tokenId), recipient);
     }
 
+    /**
+     * @notice Tests the revocation of a previously confirmed transaction.
+     * @dev Verifies that revoking a confirmation decrements the confirmation count and prevents execution.
+     */
     function testRevokeConfirmation() public {
         vm.expectEmit(true, true, true, true);
         emit SubmitTransaction(
@@ -411,6 +485,10 @@ contract MultisigWalletTest is Test {
         assertEq(address(0x123).balance, 0);
     }
 
+    /**
+     * @notice Tests that a transaction cannot be executed without sufficient confirmations.
+     * @dev Verifies that attempting to execute a transaction with insufficient confirmations reverts.
+     */
     function testExecuteWithoutEnoughConfirmations2() public {
         address payable recipient = payable(address(0x123));
         uint256 amount = 1 ether;
@@ -418,13 +496,11 @@ contract MultisigWalletTest is Test {
         vm.prank(owner1);
         multisigWallet.sendETH(recipient, amount);
 
-        // Confirm with less than required confirmations
         for (uint i = 1; i < owners.length / 2; i++) {
             vm.prank(owners[i]);
             multisigWallet.confirmTransaction(0);
         }
 
-        // Attempt to execute the transaction
         vm.prank(owners[owners.length / 2]);
         vm.expectRevert(
             "MultisigWallet: insufficient confirmations to execute"
@@ -432,6 +508,10 @@ contract MultisigWalletTest is Test {
         multisigWallet.executeTransaction(0);
     }
 
+    /**
+     * @notice Tests retrieval of the multisig wallet's owner list.
+     * @dev Verifies that the owner list returned by the wallet matches the expected list of owners.
+     */
     function testGetOwners() public view {
         address[] memory currentOwners = multisigWallet.getOwners();
         assertEq(currentOwners.length, 5);
@@ -440,6 +520,10 @@ contract MultisigWalletTest is Test {
         }
     }
 
+    /**
+     * @notice Tests execution of a transaction of type `Other` that calls an external contract function.
+     * @dev Verifies that an external function call is correctly executed through the multisig wallet.
+     */
     function testOtherTransaction() public {
         SimpleCounter counter = new SimpleCounter();
 
@@ -489,6 +573,10 @@ contract MultisigWalletTest is Test {
         assertEq(counter.count(), 1);
     }
 
+    /**
+     * @notice Tests the functionality of sending ETH from the multisig wallet.
+     * @dev Verifies that an ETH transfer is submitted, confirmed, and executed correctly.
+     */
     function testSendETH() public {
         address payable recipient = payable(address(0x123));
         uint256 amount = 1 ether;
@@ -534,6 +622,10 @@ contract MultisigWalletTest is Test {
         assertEq(address(multisigWallet).balance, INITIAL_BALANCE - amount);
     }
 
+    /**
+     * @notice Tests the case where an attempt is made to add an existing owner.
+     * @dev Verifies that adding an already existing owner fails.
+     */
     function testRevertWhenAddExistingOwner() public {
         vm.prank(owner1);
         multisigWallet.addOwner(address(0x123));
@@ -548,32 +640,40 @@ contract MultisigWalletTest is Test {
         multisigWallet.addOwner(address(0x123));
     }
 
+    /**
+     * @notice Tests that the last owner cannot be removed after all other owners have been removed.
+     * @dev Verifies that attempting to remove the last owner fails.
+     */
     function testCannotRemoveLastOwnerAfterRemovals() public {
-        // Initialize the multisig wallet with two owners
         multisigWallet = new MultisigWallet(twoOwners);
 
-        // Remove owner2
         vm.prank(owner1);
         multisigWallet.removeOwner(owner2);
 
-        uint txIndex = 0; // Since it's the first transaction
+        uint txIndex = 0;
 
-        // Confirm the transaction with owner2
         vm.prank(owner2);
         multisigWallet.confirmTransaction(txIndex);
 
-        // Now, only owner1 remains. Attempt to remove owner1
         vm.prank(owner1);
         vm.expectRevert("MultisigWallet: cannot remove the last owner");
         multisigWallet.removeOwner(owner1);
     }
 
+    /**
+     * @notice Tests that a non-owner cannot submit a transaction.
+     * @dev Verifies that only multisig owners can submit transactions.
+     */
     function testNonOwnerSubmitTransaction() public {
         vm.expectRevert("MultisigWallet: Not a multisig owner");
         vm.prank(nonOwner);
         multisigWallet.sendETH(owner2, 1 ether);
     }
 
+    /**
+     * @notice Tests that a non-owner cannot confirm a transaction.
+     * @dev Verifies that only multisig owners can confirm transactions.
+     */
     function testNonOwnerConfirmTransaction() public {
         vm.prank(owner1);
         multisigWallet.sendETH(owner2, 1 ether);
@@ -583,6 +683,10 @@ contract MultisigWalletTest is Test {
         multisigWallet.confirmTransaction(0);
     }
 
+    /**
+     * @notice Tests that an owner cannot confirm the same transaction twice.
+     * @dev Verifies that double confirmation from the same owner is prevented.
+     */
     function testDoubleConfirmation() public {
         vm.prank(owner1);
         multisigWallet.sendETH(owner2, 1 ether);
@@ -594,32 +698,42 @@ contract MultisigWalletTest is Test {
         multisigWallet.confirmTransaction(0);
     }
 
+    /**
+     * @notice Tests that confirming a non-existent transaction fails.
+     * @dev Verifies that a revert occurs when confirming a non-existent transaction.
+     */
     function testExecuteNonExistentTransaction() public {
         vm.expectRevert("MultisigWallet: Transaction does not exist");
         vm.prank(owner1);
         multisigWallet.confirmTransaction(999);
     }
 
+    /**
+     * @notice Tests that an attempt to remove a non-owner fails.
+     * @dev Verifies that only existing owners can be removed.
+     */
     function testRemoveNonOwner() public {
         vm.expectRevert("MultisigWallet: address is not an owner");
         vm.prank(owner1);
         multisigWallet.removeOwner(nonOwner);
     }
 
+    /**
+     * @notice Tests adding an owner with a dynamic number of required confirmations.
+     * @dev Verifies that adding a new owner with a large number of existing owners works as expected.
+     */
     function testAddOwnerWithDynamicConfirmations() public {
-        uint numOwners = 100; // set the number of Owners
-        uint confirmations = 67; // set the nunber of Confirmations
+        uint numOwners = 100;
+        uint confirmations = 67;
         address[] memory dynamicOwners = new address[](numOwners);
         for (uint i = 0; i < numOwners; i++) {
-            dynamicOwners[i] = address(uint160(i + 1)); // Assign unique addresses to owners
+            dynamicOwners[i] = address(uint160(i + 1));
         }
 
-        // Initialize a new multisig wallet with dynamic owners
         multisigWallet = new MultisigWallet(dynamicOwners);
 
         address newOwner = address(0x123);
 
-        // Emit the event for submitting the add owner transaction
         vm.expectEmit(true, true, true, true);
         emit SubmitTransaction(
             MultisigWallet.TransactionType.AddOwner,
@@ -634,7 +748,6 @@ contract MultisigWalletTest is Test {
         vm.prank(dynamicOwners[0]);
         multisigWallet.addOwner(newOwner);
 
-        // Loop through to confirm the transaction until reaching the required confirmations (2/3 + 1)
         for (uint i = 1; i < confirmations - 1; i++) {
             vm.expectEmit(true, true, false, true);
             emit ConfirmTransaction(dynamicOwners[i], 0);
@@ -642,7 +755,6 @@ contract MultisigWalletTest is Test {
             multisigWallet.confirmTransaction(0);
         }
 
-        // Final confirmation that triggers the execution
         vm.expectEmit(true, true, false, true);
         emit ConfirmTransaction(dynamicOwners[confirmations - 1], 0);
         vm.expectEmit(true, false, false, true);
@@ -661,29 +773,28 @@ contract MultisigWalletTest is Test {
         vm.prank(dynamicOwners[confirmations - 1]);
         multisigWallet.confirmTransaction(0);
 
-        // Check that the new owner is indeed added
         assertTrue(multisigWallet.isOwner(newOwner));
         assertEq(multisigWallet.getOwnerCount(), numOwners + 1);
     }
 
+    /**
+     * @notice Tests adding an owner with a fuzzed number of confirmations.
+     * @dev Verifies that the correct number of confirmations is required based on the number of owners.
+     * @param numOwners The number of owners for fuzz testing.
+     */
     function testFuzzAddOwnerWithDynamicConfirmations(uint numOwners) public {
-        // Limit the number of owners to 120 for fuzzing
-        numOwners = bound(numOwners, 3, 120); // Minimum of 3 owners to ensure at least 2/3 logic works
-
-        // Dynamically calculate required confirmations (2/3 of numOwners)
-        uint requiredConfirmations = (numOwners * 2 + 2) / 3; // This gives us 2/3 + 1 confirmation threshold
+        numOwners = bound(numOwners, 3, 120);
+        uint requiredConfirmations = (numOwners * 2 + 2) / 3;
 
         address[] memory dynamicOwners = new address[](numOwners);
         for (uint i = 0; i < numOwners; i++) {
-            dynamicOwners[i] = address(uint160(i + 1)); // Assign unique addresses to owners
+            dynamicOwners[i] = address(uint160(i + 1));
         }
 
-        // Initialize a new multisig wallet with dynamic owners
         multisigWallet = new MultisigWallet(dynamicOwners);
 
         address newOwner = address(0x123);
 
-        // Emit the event for submitting the add owner transaction
         vm.expectEmit(true, true, true, true);
         emit SubmitTransaction(
             MultisigWallet.TransactionType.AddOwner,
@@ -698,7 +809,6 @@ contract MultisigWalletTest is Test {
         vm.prank(dynamicOwners[0]);
         multisigWallet.addOwner(newOwner);
 
-        // Loop through to confirm the transaction until reaching the required confirmations (2/3 + 1)
         for (uint i = 1; i < requiredConfirmations - 1; i++) {
             vm.expectEmit(true, true, false, true);
             emit ConfirmTransaction(dynamicOwners[i], 0);
@@ -706,7 +816,6 @@ contract MultisigWalletTest is Test {
             multisigWallet.confirmTransaction(0);
         }
 
-        // Final confirmation that triggers the execution
         vm.expectEmit(true, true, false, true);
         emit ConfirmTransaction(dynamicOwners[requiredConfirmations - 1], 0);
         vm.expectEmit(true, false, false, true);
@@ -725,11 +834,14 @@ contract MultisigWalletTest is Test {
         vm.prank(dynamicOwners[requiredConfirmations - 1]);
         multisigWallet.confirmTransaction(0);
 
-        // Check that the new owner is indeed added
         assertTrue(multisigWallet.isOwner(newOwner));
         assertEq(multisigWallet.getOwnerCount(), numOwners + 1);
     }
 
+    /**
+     * @notice Tests adding an owner with only a single owner initially.
+     * @dev Verifies that a single owner can add another owner without issues.
+     */
     function testSingleOwnerCanAddAnother() public {
         uint numOwners = 1;
         address[] memory dynamicOwners = new address[](numOwners);
@@ -741,20 +853,20 @@ contract MultisigWalletTest is Test {
         vm.prank(dynamicOwners[0]);
         multisigWallet.addOwner(newOwner);
 
-        // Check if the new owner was successfully added
         assertTrue(multisigWallet.isOwner(newOwner));
         assertEq(multisigWallet.getOwnerCount(), numOwners + 1);
     }
 
-    /// @notice Test that removing an owner with two owners requires both to confirm.
+    /**
+     * @notice Tests that two owners must confirm to remove one of them.
+     * @dev Verifies that removing an owner requires both owners to confirm the transaction.
+     */
     function testTwoOwnersMustConfirmRemoval() public {
-        // Initialize a new multisig wallet with two owners using a dynamic array
         multisigWallet = new MultisigWallet(twoOwners);
 
         address ownerToRemove = owner2;
         address initiator = owner1;
 
-        // Expect the SubmitTransaction event
         vm.expectEmit(true, true, true, true);
         emit SubmitTransaction(
             MultisigWallet.TransactionType.RemoveOwner,
@@ -769,13 +881,8 @@ contract MultisigWalletTest is Test {
         vm.prank(initiator);
         multisigWallet.removeOwner(ownerToRemove);
 
-        // At this point, the transaction has 1 confirmation (from initiator)
-
-        // Expect the ConfirmTransaction event from the second owner
         vm.expectEmit(true, true, false, true);
         emit ConfirmTransaction(owner2, 0);
-
-        // Expect the OwnerRemoved and ExecuteTransaction events upon confirmation
         vm.expectEmit(true, false, false, true);
         emit OwnerRemoved(ownerToRemove);
         vm.expectEmit(true, true, true, true);
@@ -790,32 +897,34 @@ contract MultisigWalletTest is Test {
             owner2
         );
 
-        // Second owner confirms the transaction
         vm.prank(owner2);
         multisigWallet.confirmTransaction(0);
 
-        // Verify that ownerToRemove has been removed
         assertFalse(multisigWallet.isOwner(ownerToRemove));
         assertEq(multisigWallet.getOwnerCount(), 1);
     }
 
+    /**
+     * @notice Tests removing an owner with a dynamic number of required confirmations.
+     * @dev Verifies that removing an owner with a large number of existing owners works as expected.
+     */
     function testRemoveOwnerWithDynamicConfirmations() public {
         uint256 numOwners = 10;
-        uint256 requiredConfirmations = (numOwners * 2 + 2) / 3; // Ceiling of 2/3 * numOwners
+        uint256 requiredConfirmations = (numOwners * 2 + 2) / 3; // 2/3 confirmation threshold
 
-        // Initialize dynamic owners
+        // Initialize owners
         address[] memory dynamicOwners = new address[](numOwners);
         for (uint256 i = 0; i < numOwners; i++) {
             dynamicOwners[i] = address(uint160(i + 1));
         }
 
-        // Initialize a new multisig wallet with dynamic owners
+        // Initialize the multisig wallet with dynamic owners
         multisigWallet = new MultisigWallet(dynamicOwners);
 
         address ownerToRemove = dynamicOwners[numOwners - 1]; // Last owner
         address initiator = dynamicOwners[0];
 
-        // Expect the SubmitTransaction event for RemoveOwner
+        // Emit event for submitting RemoveOwner transaction
         vm.expectEmit(true, true, true, true);
         emit SubmitTransaction(
             MultisigWallet.TransactionType.RemoveOwner,
@@ -838,15 +947,13 @@ contract MultisigWalletTest is Test {
             multisigWallet.confirmTransaction(0);
         }
 
-        // Final confirmation that triggers the execution
+        // Final confirmation that triggers execution
         vm.expectEmit(true, true, false, true);
         emit ConfirmTransaction(dynamicOwners[requiredConfirmations - 1], 0);
 
-        // Expect PendingTransactionsDeactivated event
+        // Expect PendingTransactionsDeactivated and OwnerRemoved events
         vm.expectEmit(true, false, false, true);
         emit PendingTransactionsDeactivated();
-
-        // Expect OwnerRemoved event
         vm.expectEmit(true, true, true, false);
         emit OwnerRemoved(ownerToRemove);
 
@@ -863,6 +970,7 @@ contract MultisigWalletTest is Test {
             dynamicOwners[requiredConfirmations - 1]
         );
 
+        // Confirm the transaction
         vm.prank(dynamicOwners[requiredConfirmations - 1]);
         multisigWallet.confirmTransaction(0);
 
@@ -871,26 +979,30 @@ contract MultisigWalletTest is Test {
         assertEq(multisigWallet.getOwnerCount(), numOwners - 1);
     }
 
+    /**
+     * @notice Tests removing an owner using fuzzing for dynamic confirmations.
+     * @dev Verifies that removing an owner works correctly with a fuzzed number of owners.
+     * @param numOwnersInput The fuzzed number of owners for the test.
+     */
     function testFuzzRemoveOwnerWithDynamicConfirmations(
         uint256 numOwnersInput
     ) public {
-        // Bound the number of owners between 3 and 120 to ensure meaningful tests
-        uint256 numOwners = bound(numOwnersInput, 3, 120);
-        uint256 requiredConfirmations = (numOwners * 2 + 2) / 3; // Ceiling of 2/3 * numOwners
+        numOwnersInput = bound(numOwnersInput, 3, 120); // Bound the number of owners between 3 and 120
+        uint256 requiredConfirmations = (numOwnersInput * 2 + 2) / 3; // 2/3 confirmation threshold
 
-        // Initialize dynamic owners
-        address[] memory dynamicOwners = new address[](numOwners);
-        for (uint256 i = 0; i < numOwners; i++) {
+        // Initialize owners
+        address[] memory dynamicOwners = new address[](numOwnersInput);
+        for (uint256 i = 0; i < numOwnersInput; i++) {
             dynamicOwners[i] = address(uint160(i + 1));
         }
 
-        // Initialize a new multisig wallet with dynamic owners
+        // Initialize the multisig wallet with dynamic owners
         multisigWallet = new MultisigWallet(dynamicOwners);
 
-        address ownerToRemove = dynamicOwners[numOwners - 1]; // Last owner
+        address ownerToRemove = dynamicOwners[numOwnersInput - 1]; // Last owner
         address initiator = dynamicOwners[0];
 
-        // Expect the SubmitTransaction event for RemoveOwner
+        // Emit event for submitting RemoveOwner transaction
         vm.expectEmit(true, true, true, true);
         emit SubmitTransaction(
             MultisigWallet.TransactionType.RemoveOwner,
@@ -913,15 +1025,13 @@ contract MultisigWalletTest is Test {
             multisigWallet.confirmTransaction(0);
         }
 
-        // Final confirmation that triggers the execution
+        // Final confirmation that triggers execution
         vm.expectEmit(true, true, false, true);
         emit ConfirmTransaction(dynamicOwners[requiredConfirmations - 1], 0);
 
-        // Expect PendingTransactionsDeactivated event
+        // Expect PendingTransactionsDeactivated and OwnerRemoved events
         vm.expectEmit(true, false, false, true);
         emit PendingTransactionsDeactivated();
-
-        // Expect OwnerRemoved event
         vm.expectEmit(true, true, true, false);
         emit OwnerRemoved(ownerToRemove);
 
@@ -938,15 +1048,19 @@ contract MultisigWalletTest is Test {
             dynamicOwners[requiredConfirmations - 1]
         );
 
+        // Confirm the transaction
         vm.prank(dynamicOwners[requiredConfirmations - 1]);
         multisigWallet.confirmTransaction(0);
 
         // Verify that the owner has been removed
         assertFalse(multisigWallet.isOwner(ownerToRemove));
-        assertEq(multisigWallet.getOwnerCount(), numOwners - 1);
+        assertEq(multisigWallet.getOwnerCount(), numOwnersInput - 1);
     }
 
-    /// @notice Test that attempting to remove the last remaining owner fails.
+    /**
+     * @notice Tests that attempting to remove the last owner fails.
+     * @dev Verifies that the multisig wallet cannot remove the last remaining owner.
+     */
     function testRemoveLastOwner2() public {
         // Initialize a new multisig wallet with one owner
         multisigWallet = new MultisigWallet(singleOwner);
@@ -959,7 +1073,10 @@ contract MultisigWalletTest is Test {
         multisigWallet.removeOwner(ownerToRemove);
     }
 
-    /// @notice Test that a non-owner cannot remove an owner.
+    /**
+     * @notice Tests that a non-owner cannot remove an owner.
+     * @dev Verifies that a non-owner cannot perform owner-related actions.
+     */
     function testNonOwnerCannotRemoveOwner() public {
         // Initialize a new multisig wallet with two owners
         multisigWallet = new MultisigWallet(twoOwners);
@@ -973,7 +1090,10 @@ contract MultisigWalletTest is Test {
         multisigWallet.removeOwner(ownerToRemove);
     }
 
-    /// @notice Test that removing a non-existent owner reverts.
+    /**
+     * @notice Tests that removing a non-existent owner fails.
+     * @dev Verifies that trying to remove an owner who does not exist reverts.
+     */
     function testRemoveNonExistentOwner() public {
         // Initialize a new multisig wallet with two owners
         multisigWallet = new MultisigWallet(twoOwners);
@@ -987,8 +1107,11 @@ contract MultisigWalletTest is Test {
         multisigWallet.removeOwner(nonExistentOwner);
     }
 
+    /**
+     * @notice Tests that a malicious transaction cannot add an owner through other transaction types.
+     * @dev Verifies that a malicious transaction cannot call internal functions like addOwner.
+     */
     function testMaliciousOtherTransactionCannotAddOwner() public {
-        // Define the malicious owner and the new owner to be added
         address maliciousOwner = owner1;
         address newOwner = address(0x999);
 
@@ -1002,7 +1125,7 @@ contract MultisigWalletTest is Test {
         vm.expectEmit(true, true, true, true);
         emit SubmitTransaction(
             MultisigWallet.TransactionType.Other,
-            0, // txIndex will be 0 as it's the first transaction
+            0, // txIndex
             address(multisigWallet), // to address is the MultisigWallet itself
             0, // value is 0 for function calls
             payload, // data is the encoded addOwner call
@@ -1015,13 +1138,10 @@ contract MultisigWalletTest is Test {
         vm.prank(maliciousOwner);
         multisigWallet.submitTransaction(
             MultisigWallet.TransactionType.Other,
-            address(multisigWallet), // to address is the MultisigWallet itself
-            0, // value is 0 for function calls
-            payload // data is the encoded addOwner call
+            address(multisigWallet),
+            0,
+            payload
         );
-
-        // At this point, the transaction has 1 confirmation from the maliciousOwner
-        // For a 5-owner setup, >50% confirmations require 3 confirmations
 
         // Owner2 confirms the transaction
         vm.expectEmit(true, true, false, true);
@@ -1029,29 +1149,23 @@ contract MultisigWalletTest is Test {
         vm.prank(owner2);
         multisigWallet.confirmTransaction(0);
 
-        // Owner3 attempts to confirm the transaction, which should trigger execution
-        // Since the transaction type is "Other" and only >50% confirmations are met,
-        // executeTransaction will attempt to call addOwner, which should fail
+        // Expect reversion when the execution attempts to call addOwner
         vm.expectRevert("MultisigWallet: cannot call internal functions");
         vm.expectEmit(true, true, false, true);
         emit ConfirmTransaction(owner3, 0);
         vm.prank(owner3);
         multisigWallet.confirmTransaction(0);
 
-        // After the revert, verify that the new owner was not added
-        assertFalse(
-            multisigWallet.isOwner(newOwner),
-            "New owner should not be added"
-        );
-        assertEq(
-            multisigWallet.getOwnerCount(),
-            5,
-            "Owner count should remain unchanged"
-        );
+        // Verify that the new owner was not added
+        assertFalse(multisigWallet.isOwner(newOwner));
+        assertEq(multisigWallet.getOwnerCount(), 5);
     }
 
+    /**
+     * @notice Tests that a malicious transaction cannot remove an owner through other transaction types.
+     * @dev Verifies that a malicious transaction cannot call internal functions like removeOwner.
+     */
     function testMaliciousOtherTransactionCannotRemoveOwner() public {
-        // Define the malicious owner and the owner to be removed
         address maliciousOwner = owner1;
         address ownerToRemove = owner5;
 
@@ -1064,8 +1178,8 @@ contract MultisigWalletTest is Test {
         // Expect the SubmitTransaction event to be emitted
         vm.expectEmit(true, true, true, true);
         emit SubmitTransaction(
-            MultisigWallet.TransactionType.Other, // TransactionType.Other
-            0, // txIndex (first transaction)
+            MultisigWallet.TransactionType.Other,
+            0, // txIndex
             address(multisigWallet), // to address is the MultisigWallet itself
             0, // value is 0 for function calls
             payload, // data is the encoded removeOwner call
@@ -1077,14 +1191,11 @@ contract MultisigWalletTest is Test {
         // Prank as the malicious owner and submit the "Other" transaction
         vm.prank(maliciousOwner);
         multisigWallet.submitTransaction(
-            MultisigWallet.TransactionType.Other, // TransactionType.Other
-            address(multisigWallet), // to address is the MultisigWallet itself
-            0, // value is 0 for function calls
-            payload // data is the encoded removeOwner call
+            MultisigWallet.TransactionType.Other,
+            address(multisigWallet),
+            0,
+            payload
         );
-
-        // At this point, the transaction has 1 confirmation from the maliciousOwner
-        // For a 5-owner setup, >50% confirmations require 3 confirmations
 
         // Owner2 confirms the transaction
         vm.expectEmit(true, true, false, true);
@@ -1092,48 +1203,42 @@ contract MultisigWalletTest is Test {
         vm.prank(owner2);
         multisigWallet.confirmTransaction(0);
 
-        // Owner3 attempts to confirm the transaction, which should trigger execution
-        // Since the transaction type is "Other" and only >50% confirmations are met,
-        // executeTransaction will attempt to call removeOwner, which should fail
-        vm.expectRevert("MultisigWallet: cannot call internal functions"); // Expect the execution to revert
+        // Expect reversion when the execution attempts to call removeOwner
+        vm.expectRevert("MultisigWallet: cannot call internal functions");
         vm.expectEmit(true, true, false, true);
         emit ConfirmTransaction(owner3, 0);
         vm.prank(owner3);
         multisigWallet.confirmTransaction(0);
 
-        // After the revert, verify that the owner was not removed
-        assertTrue(
-            multisigWallet.isOwner(ownerToRemove),
-            "Owner should not be removed"
-        );
-        assertEq(
-            multisigWallet.getOwnerCount(),
-            5,
-            "Owner count should remain unchanged"
-        );
+        // Verify that the owner was not removed
+        assertTrue(multisigWallet.isOwner(ownerToRemove));
+        assertEq(multisigWallet.getOwnerCount(), 5);
     }
 
+    /**
+     * @notice Tests sending ETH with dynamic confirmations using fuzzing.
+     * @dev Verifies that the correct number of confirmations is required for sending ETH based on the number of owners.
+     * @param numOwnersInput The fuzzed number of owners for the test.
+     */
     function testFuzzSendETHWithDynamicConfirmations(
         uint256 numOwnersInput
     ) public {
-        // **Step 1: Bound the Number of Owners**
-        // Ensure the number of owners is between 3 and 120 to maintain meaningful >50% confirmation logic
+        // Bound the number of owners between 3 and 120 to maintain meaningful >50% confirmation logic
         uint256 numOwners = bound(numOwnersInput, 3, 120);
 
-        // **Step 2: Calculate Required Confirmations**
         // For >50%, requiredConfirmations = floor(numOwners / 2) + 1
         uint256 requiredConfirmations = (numOwners / 2) + 1;
 
-        // **Step 3: Initialize Dynamic Owners**
+        // Initialize dynamic owners
         address[] memory dynamicOwners = new address[](numOwners);
         for (uint256 i = 0; i < numOwners; i++) {
             dynamicOwners[i] = address(uint160(i + 1)); // Assign unique addresses
         }
 
-        // **Step 4: Deploy a New Multisig Wallet with Dynamic Owners**
+        // Deploy a new Multisig Wallet with dynamic owners
         multisigWallet = new MultisigWallet(dynamicOwners);
 
-        // **Step 5: Fund the Multisig Wallet with ETH**
+        // Fund the multisig wallet with ETH
         uint256 initialBalance = 10 ether;
         vm.deal(address(multisigWallet), initialBalance);
         assertEq(
@@ -1142,22 +1247,15 @@ contract MultisigWalletTest is Test {
             "Initial balance mismatch"
         );
 
-        // **Step 6: Define Recipient and Transfer Amount**
+        // Define the recipient and the amount to transfer
         address payable recipient = payable(address(0xABC));
         uint256 transferAmount = 1 ether;
 
-        // **Ensure Recipient Starts with Zero Balance**
-        assertEq(
-            recipient.balance,
-            0,
-            "Recipient should start with zero balance"
-        );
-
-        // **Step 7: Submit the ETH Transfer Transaction**
+        // Expect the SubmitTransaction event for sending ETH
         vm.expectEmit(true, true, true, true);
         emit SubmitTransaction(
             MultisigWallet.TransactionType.ETH,
-            0, // txIndex will be 0 as it's the first transaction
+            0,
             recipient,
             transferAmount,
             "",
@@ -1165,10 +1263,12 @@ contract MultisigWalletTest is Test {
             0,
             dynamicOwners[0] // Initiator
         );
+
+        // Submit the transaction to send ETH
         vm.prank(dynamicOwners[0]); // Initiate from the first owner
         multisigWallet.sendETH(recipient, transferAmount);
 
-        // **Step 8: Confirm the Transaction with Required Confirmations**
+        // Confirm the transaction with the required number of owners minus one
         for (uint256 i = 1; i < requiredConfirmations - 1; i++) {
             vm.expectEmit(true, true, false, true);
             emit ConfirmTransaction(dynamicOwners[i], 0);
@@ -1176,11 +1276,12 @@ contract MultisigWalletTest is Test {
             multisigWallet.confirmTransaction(0);
         }
 
-        // **Step 9: Final Confirmation to Trigger Execution**
+        // Final confirmation to trigger execution
         vm.expectEmit(true, true, false, true);
         emit ConfirmTransaction(dynamicOwners[requiredConfirmations - 1], 0);
 
-        vm.expectEmit(true, false, false, true);
+        // Expect the ExecuteTransaction event for sending ETH
+        vm.expectEmit(true, true, true, true);
         emit ExecuteTransaction(
             MultisigWallet.TransactionType.ETH,
             0,
@@ -1192,96 +1293,79 @@ contract MultisigWalletTest is Test {
             dynamicOwners[requiredConfirmations - 1] // Executor
         );
 
-        vm.prank(dynamicOwners[requiredConfirmations - 1]); // Final confirmer
+        // Final confirmation and execution
+        vm.prank(dynamicOwners[requiredConfirmations - 1]);
         multisigWallet.confirmTransaction(0);
 
-        // **Step 10: Assertions to Ensure Correct Execution**
+        // Verify that the recipient received the ETH
         assertEq(
             recipient.balance,
             transferAmount,
-            "Recipient should receive the ETH transfer"
+            "Recipient did not receive ETH transfer"
         );
         assertEq(
             address(multisigWallet).balance,
             initialBalance - transferAmount,
-            "Wallet balance should decrease by transfer amount"
+            "Multisig wallet balance mismatch after ETH transfer"
         );
-
-        // **Optional: Ensure Transaction is Marked as Inactive**
-        // You can add a getter or access the transactions array directly if accessible
-        // Example (if transactions are accessible):
-        // Transaction memory txn = multisigWallet.transactions(0);
-        // assertFalse(txn.isActive, "Transaction should be inactive after execution");
     }
 
+    /**
+     * @notice Tests an ERC20 transfer with dynamic confirmations using fuzzing.
+     * @dev Verifies that the correct number of confirmations is required for ERC20 transfers based on the number of owners.
+     * @param numOwnersInput The fuzzed number of owners for the test.
+     */
     function testFuzzERC20TransferWithDynamicConfirmations(
         uint256 numOwnersInput
     ) public {
-        // **Step 1: Bound the Number of Owners**
+        // Bound the number of owners between 3 and 120 to maintain meaningful >50% confirmation logic
         uint256 numOwners = bound(numOwnersInput, 3, 120);
         uint256 requiredConfirmations = (numOwners / 2) + 1;
 
-        // **Step 2: Initialize Dynamic Owners**
+        // Initialize dynamic owners
         address[] memory dynamicOwners = new address[](numOwners);
         for (uint256 i = 0; i < numOwners; i++) {
-            dynamicOwners[i] = address(uint160(i + 1));
+            dynamicOwners[i] = address(uint160(i + 1)); // Assign unique addresses
         }
 
-        // **Step 3: Deploy MultisigWallet and ERC20 Token**
+        // Deploy a new Multisig Wallet with dynamic owners
         multisigWallet = new MultisigWallet(dynamicOwners);
         SimpleERC20 dynamicERC20 = new SimpleERC20(1_000_000 * 10 ** 18); // 1,000,000 tokens
         dynamicERC20.transfer(address(multisigWallet), 100_000 * 10 ** 18); // Transfer 100,000 tokens to the wallet
 
-        // **Step 4: Define Recipient and Transfer Amount**
+        // Define the recipient and the amount to transfer
         address recipient = address(0xABC); // Arbitrary recipient address
         uint256 transferAmount = 10_000 * 10 ** 18; // 10,000 tokens
 
-        // **Assert Initial Balances**
-        assertEq(
-            dynamicERC20.balanceOf(recipient),
-            0,
-            "Initial recipient balance should be zero"
-        );
-        assertEq(
-            dynamicERC20.balanceOf(address(multisigWallet)),
-            100_000 * 10 ** 18,
-            "Initial wallet balance incorrect"
-        );
-
-        // **Step 5: Prepare the ERC20 Transfer Data**
+        // Prepare the ERC20 Transfer Data
         bytes memory transferData = abi.encodeWithSelector(
             dynamicERC20.transfer.selector,
             recipient,
             transferAmount
         );
 
-        // **Step 6: Expect SubmitTransaction Event**
+        // Expect the SubmitTransaction event for ERC20 transfer
         vm.expectEmit(true, true, true, true);
         emit SubmitTransaction(
             MultisigWallet.TransactionType.ERC20,
-            0, // txIndex
+            0,
             recipient,
-            0, // value (0 for ERC20 transfers)
+            0,
             transferData,
             address(dynamicERC20),
             transferAmount,
             dynamicOwners[0] // Initiator
         );
 
-        // **Step 7: Expect ConfirmTransaction Event from Submitter**
-        vm.expectEmit(true, true, false, true);
-        emit ConfirmTransaction(dynamicOwners[0], 0);
-
-        // **Step 8: Submit the ERC20 Transfer Transaction**
-        vm.prank(dynamicOwners[0]); // Initiate from the first owner
+        // Submit the transaction to transfer ERC20
+        vm.prank(dynamicOwners[0]);
         multisigWallet.transferERC20(
             IERC20(address(dynamicERC20)),
             recipient,
             transferAmount
         );
 
-        // **Step 9: Confirm the Transaction with Required Confirmations - 1**
-        // Since the first confirmation is already done by the submitter
+        // Confirm the transaction with the required number of owners minus one
         for (uint256 i = 1; i < requiredConfirmations - 1; i++) {
             vm.expectEmit(true, true, false, true);
             emit ConfirmTransaction(dynamicOwners[i], 0);
@@ -1289,74 +1373,71 @@ contract MultisigWalletTest is Test {
             multisigWallet.confirmTransaction(0);
         }
 
-        // **Step 10: Final Confirmation to Trigger Execution**
-        // The last confirmation should trigger the execution
-        vm.expectEmit(true, false, false, true);
+        // Final confirmation to trigger execution
+        vm.expectEmit(true, true, false, true);
+        emit ConfirmTransaction(dynamicOwners[requiredConfirmations - 1], 0);
+
+        // Expect the ExecuteTransaction event for ERC20 transfer
+        vm.expectEmit(true, true, true, true);
         emit ExecuteTransaction(
             MultisigWallet.TransactionType.ERC20,
             0,
             recipient,
-            0, // value (0 for ERC20 transfers)
+            0,
             transferData,
             address(dynamicERC20),
             transferAmount,
             dynamicOwners[requiredConfirmations - 1] // Executor
         );
 
-        vm.prank(dynamicOwners[requiredConfirmations - 1]); // Final confirmer
+        // Final confirmation and execution
+        vm.prank(dynamicOwners[requiredConfirmations - 1]);
         multisigWallet.confirmTransaction(0);
 
-        // **Step 11: Assertions to Ensure Correct Execution**
-        // Verify that the recipient's ERC20 balance has increased by the transfer amount
+        // Verify that the recipient received the ERC20 tokens
         assertEq(
             dynamicERC20.balanceOf(recipient),
             transferAmount,
-            "Recipient should receive the ERC20 transfer"
+            "Recipient did not receive ERC20 transfer"
         );
-
-        // Verify that the Multisig Wallet's ERC20 balance has decreased accordingly
         assertEq(
             dynamicERC20.balanceOf(address(multisigWallet)),
             100_000 * 10 ** 18 - transferAmount,
-            "Wallet ERC20 balance should decrease by transfer amount"
+            "Multisig wallet ERC20 balance mismatch after transfer"
         );
     }
 
+    /**
+     * @notice Tests an ERC721 transfer with dynamic confirmations using fuzzing.
+     * @dev Verifies that the correct number of confirmations is required for ERC721 transfers based on the number of owners.
+     * @param numOwnersInput The fuzzed number of owners for the test.
+     */
     function testFuzzERC721TransferWithDynamicConfirmations(
         uint256 numOwnersInput
     ) public {
-        // **Step 1: Bound the Number of Owners**
-        // Ensure the number of owners is between 3 and 120 to maintain meaningful >50% confirmation logic
+        // Bound the number of owners between 3 and 120 to maintain meaningful >50% confirmation logic
         uint256 numOwners = bound(numOwnersInput, 3, 120);
-
-        // **Step 2: Calculate Required Confirmations**
-        // For >50%, requiredConfirmations = floor(numOwners / 2) + 1
         uint256 requiredConfirmations = (numOwners / 2) + 1;
 
-        // **Step 3: Initialize Dynamic Owners**
+        // Initialize dynamic owners
         address[] memory dynamicOwners = new address[](numOwners);
         for (uint256 i = 0; i < numOwners; i++) {
             dynamicOwners[i] = address(uint160(i + 1)); // Assign unique addresses
         }
 
-        // **Step 4: Deploy MultisigWallet and ERC721 Token**
+        // Deploy a new Multisig Wallet with dynamic owners
         multisigWallet = new MultisigWallet(dynamicOwners);
         SimpleERC721 dynamicERC721 = new SimpleERC721();
 
         uint256 tokenId = 1; // Define a tokenId to transfer
 
-        // **Step 5: Mint ERC721 Token to the MultisigWallet**
+        // Mint ERC721 Token to the multisig wallet
         dynamicERC721.mint(address(multisigWallet), tokenId);
-        assertEq(
-            dynamicERC721.ownerOf(tokenId),
-            address(multisigWallet),
-            "ERC721 token not minted to wallet"
-        );
 
-        // **Step 6: Define Recipient and Token ID**
+        // Define the recipient
         address recipient = address(0xABC); // Arbitrary recipient address
 
-        // **Step 7: Prepare the ERC721 Transfer Data**
+        // Prepare the ERC721 Transfer Data
         bytes memory transferData = abi.encodeWithSignature(
             "safeTransferFrom(address,address,uint256)",
             address(multisigWallet),
@@ -1364,21 +1445,21 @@ contract MultisigWalletTest is Test {
             tokenId
         );
 
-        // **Step 8: Submit the ERC721 Transfer Transaction**
+        // Expect the SubmitTransaction event for ERC721 transfer
         vm.expectEmit(true, true, true, true);
         emit SubmitTransaction(
             MultisigWallet.TransactionType.ERC721,
-            0, // txIndex will be 0 as it's the first transaction
+            0,
             recipient,
-            0, // value is 0 for ERC721 transfers
+            0,
             transferData,
             address(dynamicERC721),
             tokenId,
             dynamicOwners[0] // Initiator
         );
 
-        // **Step 9: Submit the Transaction via transferERC721**
-        vm.prank(dynamicOwners[0]); // Initiate from the first owner
+        // Submit the transaction to transfer ERC721
+        vm.prank(dynamicOwners[0]);
         multisigWallet.safeTransferFromERC721(
             address(dynamicERC721),
             address(multisigWallet),
@@ -1386,10 +1467,7 @@ contract MultisigWalletTest is Test {
             tokenId
         );
 
-        // **Step 10: Confirm the Transaction with Required Confirmations - 1**
-        // Since the first confirmation is already done by the submitter (confirmTransaction is called inside submitTransaction)
-        // Hence, we need to confirm with (requiredConfirmations - 1) additional owners
-
+        // Confirm the transaction with the required number of owners minus one
         for (uint256 i = 1; i < requiredConfirmations - 1; i++) {
             vm.expectEmit(true, true, false, true);
             emit ConfirmTransaction(dynamicOwners[i], 0);
@@ -1397,60 +1475,66 @@ contract MultisigWalletTest is Test {
             multisigWallet.confirmTransaction(0);
         }
 
-        // **Step 11: Final Confirmation to Trigger Execution**
-        // The last confirmation should trigger the execution
-        vm.expectEmit(true, false, false, true);
+        // Final confirmation to trigger execution
+        vm.expectEmit(true, true, false, true);
+        emit ConfirmTransaction(dynamicOwners[requiredConfirmations - 1], 0);
+
+        // Expect the ExecuteTransaction event for ERC721 transfer
+        vm.expectEmit(true, true, true, true);
         emit ExecuteTransaction(
             MultisigWallet.TransactionType.ERC721,
-            0, // txIndex
+            0,
             recipient,
-            0, // value is 0 for ERC721 transfers
+            0,
             transferData,
             address(dynamicERC721),
             tokenId,
             dynamicOwners[requiredConfirmations - 1] // Executor
         );
 
-        vm.prank(dynamicOwners[requiredConfirmations - 1]); // Final confirmer
+        // Final confirmation and execution
+        vm.prank(dynamicOwners[requiredConfirmations - 1]);
         multisigWallet.confirmTransaction(0);
 
-        // **Step 12: Assertions to Ensure Correct Execution**
         // Verify that the recipient now owns the ERC721 token
         assertEq(
             dynamicERC721.ownerOf(tokenId),
             recipient,
             "ERC721 token was not transferred to the recipient"
         );
-
-        // Verify that the Multisig Wallet no longer owns the token
-        assertEq(
-            dynamicERC721.ownerOf(tokenId),
-            recipient,
-            "MultisigWallet still owns the ERC721 token after transfer"
-        );
-
-        // No further confirmations should be attempted after execution
     }
 
-    // 1. Test Constructor Validations
-
+    /**
+     * @notice Tests that the constructor reverts when no owners are provided.
+     * @dev Verifies that the constructor fails if an empty owners list is passed.
+     */
     function testConstructorRevertsWithNoOwners() public {
         vm.expectRevert("MultisigWallet: at least one owner required");
         new MultisigWallet(noOwners);
     }
 
+    /**
+     * @notice Tests that the constructor reverts when a zero address is passed as an owner.
+     * @dev Verifies that the constructor fails if a zero address is provided as one of the owners.
+     */
     function testConstructorRevertsWithZeroAddressOwner() public {
         vm.expectRevert("MultisigWallet: owner address cannot be zero");
         new MultisigWallet(invalidOwners);
     }
 
+    /**
+     * @notice Tests that the constructor reverts when duplicate owners are provided.
+     * @dev Verifies that the constructor fails if the list of owners contains duplicates.
+     */
     function testConstructorRevertsWithDuplicateOwners() public {
         vm.expectRevert("MultisigWallet: duplicate owner address");
         new MultisigWallet(duplicateOwners);
     }
 
-    // 2. Test Transaction Submission Validations
-
+    /**
+     * @notice Tests that submitting an ETH transaction with a zero value reverts.
+     * @dev Verifies that the multisig wallet requires a non-zero amount for ETH transactions.
+     */
     function testSubmitETHTransactionWithZeroValue() public {
         address recipient = address(0x123);
         vm.expectRevert("MultisigWallet: Ether (Wei) amount required");
@@ -1458,6 +1542,10 @@ contract MultisigWalletTest is Test {
         multisigWallet.sendETH(recipient, 0);
     }
 
+    /**
+     * @notice Tests that submitting an ERC20 transaction with empty data reverts.
+     * @dev Verifies that the multisig wallet requires valid ERC20 data for token transfers.
+     */
     function testSubmitERC20TransactionWithEmptyData() public {
         bytes memory emptyData = "";
 
@@ -1473,8 +1561,10 @@ contract MultisigWalletTest is Test {
         );
     }
 
-    // 3. Test Confirmation and Execution Errors
-
+    /**
+     * @notice Tests that an owner cannot confirm a transaction twice.
+     * @dev Verifies that double confirmation is prevented in the multisig wallet.
+     */
     function testDoubleConfirmationReverts() public {
         vm.prank(owner1);
         multisigWallet.sendETH(owner2, 1 ether);
@@ -1486,19 +1576,23 @@ contract MultisigWalletTest is Test {
         multisigWallet.confirmTransaction(0);
     }
 
+    /**
+     * @notice Tests that executing a transaction without enough confirmations reverts.
+     * @dev Verifies that insufficient confirmations prevent transaction execution.
+     */
     function testExecuteWithoutEnoughConfirmations() public {
         address payable recipient = payable(address(0x123));
         uint256 amount = 1 ether;
 
-        // Initiate the ETH transfer from owner1 (this auto-confirms by owner1)
+        // Submit an ETH transfer from owner1
         vm.prank(owner1);
         multisigWallet.sendETH(recipient, amount);
 
-        // Confirm the transaction with only owner2 (total 2 confirmations out of 5)
+        // Confirm the transaction with only owner2
         vm.prank(owner2);
         multisigWallet.confirmTransaction(0);
 
-        // Attempt to execute the transaction with owner3, expecting a revert
+        // Expect reversion when trying to execute with insufficient confirmations
         vm.expectRevert(
             "MultisigWallet: insufficient confirmations to execute"
         );
@@ -1514,12 +1608,14 @@ contract MultisigWalletTest is Test {
         assertEq(
             address(multisigWallet).balance,
             INITIAL_BALANCE,
-            "Wallet balance should remain unchanged"
+            "Multisig wallet balance should remain unchanged"
         );
     }
 
-    // 4. Test Data Decoding Errors
-
+    /**
+     * @notice Tests that malformed ERC20 transfer data reverts the transaction.
+     * @dev Verifies that incorrect data lengths for ERC20 transfers are rejected.
+     */
     function testMalformedERC20TransferData() public {
         address recipient = address(0x123);
         // Incorrect data length (e.g., missing bytes)
@@ -1540,6 +1636,10 @@ contract MultisigWalletTest is Test {
         );
     }
 
+    /**
+     * @notice Tests that malformed ERC721 transfer data reverts the transaction.
+     * @dev Verifies that incorrect data lengths for ERC721 transfers are rejected.
+     */
     function testMalformedERC721TransferData() public {
         address from = address(multisigWallet);
         address to = address(0x123);
@@ -1560,12 +1660,16 @@ contract MultisigWalletTest is Test {
             MultisigWallet.TransactionType.ERC721,
             address(erc721Token),
             0,
-            malformedData // Pass the malformed data here
+            malformedData
         );
     }
 
     // 5. Test Owner Management Edge Cases
 
+    /**
+     * @notice Tests that adding an existing owner fails.
+     * @dev Verifies that attempting to add a current owner again is rejected.
+     */
     function testAddExistingOwnerReverts() public {
         address existingOwner = owner1;
 
@@ -1574,6 +1678,10 @@ contract MultisigWalletTest is Test {
         multisigWallet.addOwner(existingOwner);
     }
 
+    /**
+     * @notice Tests that removing a non-existent owner fails.
+     * @dev Verifies that attempting to remove an address that is not an owner is rejected.
+     */
     function testRemoveNonExistentOwnerReverts() public {
         address nonExistentOwner = address(0x999);
 
@@ -1582,8 +1690,12 @@ contract MultisigWalletTest is Test {
         multisigWallet.removeOwner(nonExistentOwner);
     }
 
+    /**
+     * @notice Tests that removing the last remaining owner fails.
+     * @dev Verifies that the multisig wallet cannot remove the final owner.
+     */
     function testRemoveLastOwnerReverts() public {
-        // Initialize with single owner
+        // Initialize with a single owner
         multisigWallet = new MultisigWallet(singleOwner);
 
         address soleOwner = owner1;
@@ -1595,6 +1707,10 @@ contract MultisigWalletTest is Test {
 
     // 6. Test Reentrancy and Security Guards
 
+    /**
+     * @notice Tests reentrancy protection during confirmTransaction function.
+     * @dev Verifies that reentrancy attacks on transaction confirmation are blocked.
+     */
     function testReentrancyAtttackOnConfirmTransation() public {
         // Deploy a malicious contract that attempts to re-enter
         MaliciousContract attacker = new MaliciousContract(
@@ -1618,8 +1734,12 @@ contract MultisigWalletTest is Test {
         multisigWallet.confirmTransaction(0);
     }
 
+    /**
+     * @notice Tests reentrancy protection during executeTransaction function.
+     * @dev Verifies that reentrancy attacks on transaction execution are blocked.
+     */
     function testReentrancyAttackOnExecuteTransaction() public {
-        // Deploy the malicious contract
+        // Deploy a malicious contract that attempts to re-enter during execution
         MaliciousReentrantExecutor attacker = new MaliciousReentrantExecutor(
             multisigWallet
         );
@@ -1627,7 +1747,7 @@ contract MultisigWalletTest is Test {
         // Fund the multisig wallet
         vm.deal(address(multisigWallet), 10 ether);
 
-        // Have the multisig owners submit and confirm a transaction to send ETH to the attacker
+        // Submit and confirm an ETH transfer to the malicious contract
         vm.prank(owner1);
         multisigWallet.sendETH(address(attacker), 1 ether);
 
@@ -1636,12 +1756,18 @@ contract MultisigWalletTest is Test {
             multisigWallet.confirmTransaction(0);
         }
 
-        // Final confirmation and attempt to execute, which should trigger the reentrancy attack
+        // Expect reentrancy guard to prevent the attack during execution
         vm.prank(owners[owners.length / 2]);
         vm.expectRevert("MultisigWallet: external call failed");
         multisigWallet.confirmTransaction(0);
     }
 
+    // 7. Test SafeERC721Receive and Token Transfers
+
+    /**
+     * @notice Tests the onERC721Received function when an ERC721 token is transferred to the multisig wallet.
+     * @dev Verifies that the multisig wallet correctly implements the IERC721Receiver interface.
+     */
     function testOnERC721Received() public {
         // Arrange
         address from = owner2; // The current owner of the token
@@ -1649,7 +1775,6 @@ contract MultisigWalletTest is Test {
         bytes memory data = "some data";
 
         // Mint a token to 'from' (owner2)
-        // 'address(this)' is the owner of the SimpleERC721 contract in this test context
         erc721Token.mint(from, tokenId);
 
         // Expect the ERC721Received event to be emitted when the token is received
@@ -1657,7 +1782,7 @@ contract MultisigWalletTest is Test {
         emit ERC721Received(from, from, tokenId, data);
 
         // Act: Transfer the token from 'from' to the multisig wallet
-        vm.prank(from); // Sets msg.sender to 'from', making 'from' the operator
+        vm.prank(from);
         erc721Token.safeTransferFrom(
             from,
             address(multisigWallet),
@@ -1673,12 +1798,16 @@ contract MultisigWalletTest is Test {
         );
     }
 
+    /**
+     * @notice Tests that the multisig wallet can receive ERC20 tokens.
+     * @dev Verifies that ERC20 tokens can be successfully transferred to the multisig wallet.
+     */
     function testReceiveERC20Tokens() public {
         // Arrange
         address sender = owner1;
         uint256 transferAmount = 500 * 10 ** 18; // 500 ERC20 tokens
 
-        // **Transfer tokens to sender (owner1)**
+        // Transfer tokens to sender (owner1)
         bool success = erc20Token.transfer(sender, transferAmount);
         require(success, "ERC20 transfer to sender failed");
 
@@ -1694,12 +1823,12 @@ contract MultisigWalletTest is Test {
             "Sender does not have enough ERC20 tokens"
         );
 
-        // Act: Transfer ERC20 tokens to the MultisigWallet
+        // Act: Transfer ERC20 tokens to the multisig wallet
         vm.prank(sender);
         success = erc20Token.transfer(address(multisigWallet), transferAmount);
         require(success, "ERC20 transfer failed");
 
-        // Assert: Check that the MultisigWallet's ERC20 balance has increased by transferAmount
+        // Assert: Check that the multisig wallet's ERC20 balance has increased
         uint256 finalWalletBalance = erc20Token.balanceOf(
             address(multisigWallet)
         );
@@ -1718,12 +1847,20 @@ contract MultisigWalletTest is Test {
         );
     }
 
+    /**
+     * @notice Tests that sending ETH to a zero address reverts.
+     * @dev Verifies that the multisig wallet requires a valid recipient address for ETH transfers.
+     */
     function testSendETHToZeroAddressReverts() public {
         vm.prank(owner1);
         vm.expectRevert("MultisigWallet: receiver address required");
         multisigWallet.sendETH(address(0), 1 ether);
     }
 
+    /**
+     * @notice Tests that transferring zero amount of ERC20 tokens reverts.
+     * @dev Verifies that the multisig wallet requires a positive amount for ERC20 transfers.
+     */
     function testTransferERC20ZeroAmountReverts() public {
         vm.prank(owner1);
         vm.expectRevert("MultisigWallet: token amount required");
@@ -1734,6 +1871,10 @@ contract MultisigWalletTest is Test {
         );
     }
 
+    /**
+     * @notice Tests that a non-owner cannot submit a transaction.
+     * @dev Verifies that only multisig owners can submit transactions.
+     */
     function testNonOwnerCannotSubmitTransaction() public {
         vm.prank(nonOwner);
         vm.expectRevert("MultisigWallet: Not a multisig owner");
