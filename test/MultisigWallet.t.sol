@@ -28,6 +28,7 @@ contract MultisigWalletTest is Test {
     address[] public noOwners;
     address[] public invalidOwners;
     address[] public duplicateOwners;
+    address[] public threeOwners;
 
     /// @notice Constant values used throughout the tests.
     uint256 public constant INITIAL_BALANCE = 10 ether;
@@ -120,6 +121,7 @@ contract MultisigWalletTest is Test {
     function setUp() public {
         owners = [owner1, owner2, owner3, owner4, owner5];
         twoOwners = [owner1, owner2];
+        threeOwners = [owner1, owner2, owner3];
         singleOwner = [owner1];
         invalidOwners = [address(0)];
         duplicateOwners = [address(1), address(1)];
@@ -620,6 +622,50 @@ contract MultisigWalletTest is Test {
 
         assertEq(recipient.balance, amount);
         assertEq(address(multisigWallet).balance, INITIAL_BALANCE - amount);
+    }
+
+    /**
+     * @notice Tests that with two owners, both owners are required to confirm a transaction.
+     */
+    function testTwoOwnersRequireBothConfirmations() public {
+        // Initialize with two owners
+        multisigWallet = new MultisigWallet(twoOwners);
+        vm.deal(address(multisigWallet), 1 ether);
+
+        // Submit a transaction from owner1
+        vm.prank(owner1);
+        multisigWallet.sendETH(address(0x123), 1 ether);
+
+        vm.expectRevert(
+            "MultisigWallet: insufficient confirmations to execute"
+        );
+        vm.prank(owner1);
+        multisigWallet.executeTransaction(0);
+
+        // Owner2 confirms, now transaction should execute
+        vm.prank(owner2);
+        multisigWallet.confirmTransaction(0);
+
+        assertEq(address(0x123).balance, 1 ether);
+    }
+
+    /**
+     * @notice Tests that with three owners, the majority confirmation rule is enforced correctly.
+     */
+    function testThreeOwnersMajorityConfirmation() public {
+        // Initialize with three owners
+        multisigWallet = new MultisigWallet(threeOwners);
+        vm.deal(address(multisigWallet), 1 ether);
+
+        // Submit a transaction from owner1
+        vm.prank(owner1);
+        multisigWallet.sendETH(address(0x123), 1 ether);
+
+        // Confirmations from only owner1 and owner2 (2/3)
+        vm.prank(owner2);
+        multisigWallet.confirmTransaction(0);
+
+        assertEq(address(0x123).balance, 1 ether);
     }
 
     /**
@@ -1879,6 +1925,34 @@ contract MultisigWalletTest is Test {
         vm.prank(nonOwner);
         vm.expectRevert("MultisigWallet: Not a multisig owner");
         multisigWallet.sendETH(owner2, 1 ether);
+    }
+
+    function testDeactivatePendingTransactionsWithLargeArray() public {
+        // Simulate adding a large number of transactions
+        uint256 largeNumber = 10000;
+        vm.startPrank(owner1);
+        for (uint256 i = 0; i < largeNumber; i++) {
+            multisigWallet.sendETH(address(0x123), 1 wei);
+        }
+        vm.stopPrank();
+
+        // Attempt to add a new owner
+        address newOwner = address(0x999);
+        vm.prank(owner1);
+        multisigWallet.addOwner(newOwner);
+
+        // Confirm the transaction up to the required number of confirmations
+        uint256 requiredConfirmations = (owners.length * 2 + 2) / 3;
+        for (uint256 i = 1; i < requiredConfirmations - 1; i++) {
+            vm.prank(owners[i]);
+            multisigWallet.confirmTransaction(largeNumber);
+        }
+
+        // The execution should fail only if gas limit is exceeded
+        vm.prank(owners[requiredConfirmations]);
+        // vm.expectRevert("Out of gas");
+        multisigWallet.confirmTransaction(largeNumber);
+        assertTrue(multisigWallet.isOwner(newOwner));
     }
 }
 
