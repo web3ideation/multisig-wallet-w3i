@@ -1739,8 +1739,6 @@ contract MultisigWalletTest is Test {
         );
     }
 
-    // 5. Test Owner Management Edge Cases
-
     /**
      * @notice Tests that adding an existing owner fails.
      * @dev Verifies that attempting to add a current owner again is rejected.
@@ -1779,8 +1777,6 @@ contract MultisigWalletTest is Test {
         vm.expectRevert("MultisigWallet: cannot remove the last owner");
         multisigWallet.removeOwner(soleOwner);
     }
-
-    // 6. Test Reentrancy and Security Guards
 
     /**
      * @notice Tests reentrancy protection during confirmTransaction function.
@@ -1837,7 +1833,40 @@ contract MultisigWalletTest is Test {
         multisigWallet.confirmTransaction(0);
     }
 
-    // 7. Test SafeERC721Receive and Token Transfers
+    /**
+     * @notice Tests that a transaction cannot be replayed after execution.
+     * @dev Ensures that once a transaction is executed, it cannot be re-executed.
+     */
+    function testCannotReplayExecutedTransaction() public {
+        // Owner1 submits a transaction to send 1 ether
+        vm.prank(owner1);
+        multisigWallet.sendETH(address(0x123), 1 ether);
+
+        // Other owners confirm the transaction
+        vm.prank(owner2);
+        multisigWallet.confirmTransaction(0);
+        vm.prank(owner3);
+        multisigWallet.confirmTransaction(0);
+
+        // Verify that the recipient received the ether
+        assertEq(
+            address(0x123).balance,
+            1 ether,
+            "Recipient should have received 1 ether"
+        );
+
+        // Attempt to replay (re-execute) the same transaction
+        vm.expectRevert("MultisigWallet: Transaction not active");
+        vm.prank(owner1);
+        multisigWallet.executeTransaction(0);
+
+        // Check that the balance did not change (replay attack failed)
+        assertEq(
+            address(0x123).balance,
+            1 ether,
+            "Recipient balance should remain unchanged after replay attempt"
+        );
+    }
 
     /**
      * @notice Tests the onERC721Received function when an ERC721 token is transferred to the multisig wallet.
