@@ -429,6 +429,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         uint256 _txIndex
     ) public onlyMultisigOwner txExists(_txIndex) isActive(_txIndex) {
         Transaction storage transaction = transactions[_txIndex];
+        require(transaction.isActive, "MultisigWallet: Transaction is not active");
         require(
             isConfirmed[_txIndex][msg.sender],
             "MultisigWallet: Transaction has not been confirmed"

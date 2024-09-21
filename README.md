@@ -104,8 +104,17 @@ Testnet tests:
 deployscript für multisigWallet schreiben #Deployed at 0x205750B139d821A87caBD52757be99DC92FF07D0 ✅
 deployscript für simpleERC20 schreiben #Deployed at 0xbD89C92329E24a6abdE36e3aa44F17B396d62422 ✅
 deployscript für simpleERC721 schreiben #Deployed at 0x76590a96a63688Ad1c7422fbAa6EFB66C9ba176a ✅
-➡️ stagetest schreiben - "how to run stage tests with foundry on the sepolia testnet" Googeln / cyfrin
-tests validieren
+➡️ testscript auf sepolia fork validieren - ➡️ Overpaying problem is probably just because of dust left on these addresses, so instead of checking the absolute balance, check the difference between initial and final balance
+testCannotReplayExecutedTransaction overpays
+testExecuteWithoutEnoughConfirmations actual problem
+testNumConfirmationsReducedAfterOwnerRemoval overpays
+testRevokeConfirmation actual problem
+testSendETH overpays
+testSubmitAndConfirmETHTransaction overpays
+testThreeOwnersMajorityConfirmation overpays
+testTwoOwnersRequireBothConfirmations overpays
+
+neues einfaches testscript schreiben um die funktion auf tatsächlichem sepolia testnet zu validieren
 
 _Mainnet deploy_
 

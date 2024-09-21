@@ -1840,7 +1840,7 @@ contract MultisigWalletTest is Test {
     function testCannotReplayExecutedTransaction() public {
         // Owner1 submits a transaction to send 1 ether
         vm.prank(owner1);
-        multisigWallet.sendETH(address(0x123), 1 ether);
+        multisigWallet.sendETH(address(0x1234), 1 ether);
 
         // Other owners confirm the transaction
         vm.prank(owner2);
@@ -1850,7 +1850,7 @@ contract MultisigWalletTest is Test {
 
         // Verify that the recipient received the ether
         assertEq(
-            address(0x123).balance,
+            address(0x1234).balance,
             1 ether,
             "Recipient should have received 1 ether"
         );
@@ -1862,7 +1862,7 @@ contract MultisigWalletTest is Test {
 
         // Check that the balance did not change (replay attack failed)
         assertEq(
-            address(0x123).balance,
+            address(0x1234).balance,
             1 ether,
             "Recipient balance should remain unchanged after replay attempt"
         );
