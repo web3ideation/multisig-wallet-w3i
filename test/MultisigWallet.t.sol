@@ -276,6 +276,8 @@ contract MultisigWalletTest is Test {
         address payable recipient = payable(address(0x123));
         uint256 amount = 1 ether;
 
+        uint256 initialBalance = recipient.balance;
+
         vm.expectEmit(true, true, true, true);
         emit SubmitTransaction(
             MultisigWallet.TransactionType.ETH,
@@ -318,7 +320,9 @@ contract MultisigWalletTest is Test {
         vm.prank(owners[owners.length / 2]);
         multisigWallet.confirmTransaction(0);
 
-        assertEq(recipient.balance, amount);
+        uint256 receivedBalance = recipient.balance - initialBalance;
+
+        assertEq(receivedBalance, amount);
         assertEq(address(multisigWallet).balance, INITIAL_BALANCE - amount);
     }
 
@@ -450,6 +454,8 @@ contract MultisigWalletTest is Test {
      * @dev Verifies that revoking a confirmation decrements the confirmation count and prevents execution.
      */
     function testRevokeConfirmation() public {
+        uint256 initialBalance = address(0x123).balance; 
+
         vm.expectEmit(true, true, true, true);
         emit SubmitTransaction(
             MultisigWallet.TransactionType.ETH,
@@ -484,7 +490,9 @@ contract MultisigWalletTest is Test {
         vm.prank(owners[owners.length / 2]);
         multisigWallet.confirmTransaction(0);
 
-        assertEq(address(0x123).balance, 0);
+        uint256 receivedBalance = address(0x123).balance - initialBalance;
+
+        assertEq(receivedBalance, 0);
     }
 
     /**
@@ -583,6 +591,8 @@ contract MultisigWalletTest is Test {
         address payable recipient = payable(address(0x123));
         uint256 amount = 1 ether;
 
+        uint256 initialBalance = recipient.balance;
+
         vm.expectEmit(true, true, true, true);
         emit SubmitTransaction(
             MultisigWallet.TransactionType.ETH,
@@ -620,7 +630,9 @@ contract MultisigWalletTest is Test {
         vm.prank(owners[owners.length / 2]);
         multisigWallet.confirmTransaction(0);
 
-        assertEq(recipient.balance, amount);
+        uint256 receivedBalance = recipient.balance - initialBalance;
+
+        assertEq(receivedBalance, amount);
         assertEq(address(multisigWallet).balance, INITIAL_BALANCE - amount);
     }
 
@@ -628,6 +640,8 @@ contract MultisigWalletTest is Test {
      * @notice Tests that with two owners, both owners are required to confirm a transaction.
      */
     function testTwoOwnersRequireBothConfirmations() public {
+        uint256 initialBalance = address(0x123).balance;
+
         // Initialize with two owners
         multisigWallet = new MultisigWallet(twoOwners);
         vm.deal(address(multisigWallet), 1 ether);
@@ -646,13 +660,17 @@ contract MultisigWalletTest is Test {
         vm.prank(owner2);
         multisigWallet.confirmTransaction(0);
 
-        assertEq(address(0x123).balance, 1 ether);
+        uint256 receivedBalance = address(0x123).balance - initialBalance;
+
+        assertEq(receivedBalance, 1 ether);
     }
 
     /**
      * @notice Tests that with three owners, the majority confirmation rule is enforced correctly.
      */
     function testThreeOwnersMajorityConfirmation() public {
+        uint256 initialBalance = address(0x123).balance;
+
         // Initialize with three owners
         multisigWallet = new MultisigWallet(threeOwners);
         vm.deal(address(multisigWallet), 1 ether);
@@ -665,7 +683,9 @@ contract MultisigWalletTest is Test {
         vm.prank(owner2);
         multisigWallet.confirmTransaction(0);
 
-        assertEq(address(0x123).balance, 1 ether);
+        uint256 receivedBalance = address(0x123).balance - initialBalance;
+
+        assertEq(receivedBalance, 1 ether);
     }
 
     /**
@@ -1659,6 +1679,8 @@ contract MultisigWalletTest is Test {
         address payable recipient = payable(address(0x123));
         uint256 amount = 1 ether;
 
+        uint256 initialBalance = recipient.balance;
+
         // Submit an ETH transfer from owner1
         vm.prank(owner1);
         multisigWallet.sendETH(recipient, amount);
@@ -1674,12 +1696,10 @@ contract MultisigWalletTest is Test {
         vm.prank(owner3);
         multisigWallet.executeTransaction(0);
 
+        uint256 receivedBalance = recipient.balance - initialBalance;
+
         // Verify that the transaction was not executed
-        assertEq(
-            recipient.balance,
-            0,
-            "Recipient should not have received ETH"
-        );
+        assertEq(receivedBalance, 0, "Recipient should not have received ETH");
         assertEq(
             address(multisigWallet).balance,
             INITIAL_BALANCE,
@@ -1838,6 +1858,8 @@ contract MultisigWalletTest is Test {
      * @dev Ensures that once a transaction is executed, it cannot be re-executed.
      */
     function testCannotReplayExecutedTransaction() public {
+        uint256 initialBalance = address(0x1234).balance;
+
         // Owner1 submits a transaction to send 1 ether
         vm.prank(owner1);
         multisigWallet.sendETH(address(0x1234), 1 ether);
@@ -1848,9 +1870,11 @@ contract MultisigWalletTest is Test {
         vm.prank(owner3);
         multisigWallet.confirmTransaction(0);
 
+        uint256 receivedBalance = address(0x1234).balance - initialBalance;
+
         // Verify that the recipient received the ether
         assertEq(
-            address(0x1234).balance,
+            receivedBalance,
             1 ether,
             "Recipient should have received 1 ether"
         );
@@ -1860,9 +1884,11 @@ contract MultisigWalletTest is Test {
         vm.prank(owner1);
         multisigWallet.executeTransaction(0);
 
+        receivedBalance = address(0x1234).balance - initialBalance;
+
         // Check that the balance did not change (replay attack failed)
         assertEq(
-            address(0x1234).balance,
+            receivedBalance,
             1 ether,
             "Recipient balance should remain unchanged after replay attempt"
         );
@@ -2084,6 +2110,8 @@ contract MultisigWalletTest is Test {
      * @dev Verifies that if a multisig owner is deleted, the number of required confirmations is reduced accordingly.
      */
     function testNumConfirmationsReducedAfterOwnerRemoval() public {
+        uint256 initialBalance = address(0x123).balance;
+
         // Step 1: Submit a transaction from owner1
         vm.prank(owner1);
         multisigWallet.sendETH(address(0x123), 1 ether);
@@ -2116,8 +2144,9 @@ contract MultisigWalletTest is Test {
         vm.prank(owner4);
         multisigWallet.confirmTransaction(0);
 
+        uint256 receivedBalance = address(0x123).balance - initialBalance;
         // Check that the transaction was executed
-        assertEq(address(0x123).balance, 1 ether);
+        assertEq(receivedBalance, 1 ether);
     }
 }
 
