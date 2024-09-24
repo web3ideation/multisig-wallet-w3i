@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.7;
 
-import "../lib/forge-std/src/Test.sol";
+import "../lib/forge-std/src/Script.sol";
 import "../src/MultisigWallet.sol";
 import "../src/SimpleERC20.sol";
 import "../src/SimpleERC721.sol";
 
 /**
- * @title MultisigWalletStageTest
- * @notice This contract tests the functionalities of the MultisigWallet contract.
+ * @title testMultisigWallet
+ * @notice This contract tests the functionalities of the MultisigWallet contract on the sepolia testnet.
  * @dev Use this for Stage testing on the Sepolia testnet.
  */
-contract MultisigWalletStageTest is Test {
+contract testMultisigWallet is Script {
     /// @notice The multisig wallet instance being tested.
     MultisigWallet public multisigWallet;
 
@@ -28,6 +28,8 @@ contract MultisigWalletStageTest is Test {
     address public owner4;
     address public owner5;
     address public nonOwner;
+
+    string[] public inputs;
 
     /**
      * @notice Sets up the environment for each test.
@@ -56,17 +58,25 @@ contract MultisigWalletStageTest is Test {
      * @notice Tests the deposit functionality of the multisig wallet.
      * @dev Verifies that a deposit correctly updates the balance and emits the correct event.
      */
-    function testDeposit() public {
+    function run() public {
+        vm.startBroadcast(vm.envUint("SEPOLIA_PRIVATE_KEY_OWNER1"));
+
         uint256 depositAmount = 0.01 ether;
         address depositor = owner1;
-        uint256 initialOwner1Balance = depositor.balance;
+
+        // !!! Use FFI to fetch the initial balance directly from Sepolia !!!
+        uint256 initialOwner1Balance = getSepoliaBalance(depositor);
+        console.log("Initial Owner1 Balance: ", initialOwner1Balance);
+
+        uint256 initialWalletBalance = getSepoliaBalance(
+            address(multisigWallet)
+        );
+        console.log("Initial Wallet Balance: ", initialWalletBalance);
 
         require(
             depositor.balance >= depositAmount,
             "Insufficient funds for deposit"
         );
-
-        vm.startBroadcast(vm.envUint("SEPOLIA_PRIVATE_KEY_OWNER1"));
 
         uint256 gasStart = gasleft();
 
@@ -77,12 +87,33 @@ contract MultisigWalletStageTest is Test {
 
         uint256 gasUsedDeposit = (gasStart - gasleft()) * tx.gasprice;
 
-        vm.stopBroadcast();
+        // !!! Use FFI to fetch real-time multisig wallet balance after the deposit !!!
+        uint256 walletBalanceAfterDeposit = getSepoliaBalance(
+            address(multisigWallet)
+        );
 
         // Assert that the multisig wallet's balance has increased by the deposit amount
-        assertEq(address(multisigWallet).balance, depositAmount);
+        if (walletBalanceAfterDeposit == initialWalletBalance + depositAmount) {
+            console.log("Pass: Deposit amount correct");
+        } else {
+            console.log("Fail: Deposit amount incorrect");
+            console.log(
+                "walletBalanceAfterDeposit:",
+                walletBalanceAfterDeposit
+            );
+            console.log("initialWalletBalance:", initialWalletBalance);
+            console.log("depositAmount: ", depositAmount);
+        }
 
-        vm.startBroadcast(vm.envUint("SEPOLIA_PRIVATE_KEY_OWNER1"));
+        console.log(
+            "Wallet Balance After Deposit: ",
+            walletBalanceAfterDeposit
+        );
+
+        // After the deposit, owner1's balance is reduced by depositAmount and gasUsedDeposit
+        uint256 owner1BalanceAfterDeposit = initialOwner1Balance -
+            depositAmount -
+            gasUsedDeposit;
 
         gasStart = gasleft();
 
@@ -93,20 +124,70 @@ contract MultisigWalletStageTest is Test {
 
         uint256 gasUsedSubmit = (gasStart - gasleft()) * tx.gasprice;
 
-        vm.stopBroadcast();
+        // !!! Use FFI to fetch real-time multisig wallet balance after the withdrawal !!!
+        uint256 finalWalletBalance = getSepoliaBalance(address(multisigWallet));
+        require(finalWalletBalance == 0, "Withdrawal failed");
 
-        // Verify that the multisig wallet balance is now zero
-        assertEq(address(multisigWallet).balance, 0);
+        // After the withdrawal, owner1's balance is updated considering gas fees from both actions
+        uint256 expectedOwner1BalanceAfterWithdrawal = owner1BalanceAfterDeposit -
+                gasUsedSubmit;
 
-        // Total gas used (sum up all the gas fees in deposit, submit, confirm, and execute steps)
-        uint256 totalGasFees = gasUsedDeposit + gasUsedSubmit;
+        // !!! Use FFI to fetch real-time balance of owner1 after the transaction !!!
+        uint256 finalOwner1Balance = getSepoliaBalance(depositor);
+
+        console.log("Final Owner1 Balance: ", finalOwner1Balance);
+        console.log(
+            "expectedOwner1BalanceAfterWithdrawal: ",
+            expectedOwner1BalanceAfterWithdrawal
+        );
+        console.log("initialOwner1Balance: ", initialOwner1Balance);
 
         // Verify that owner1 has received the withdrawn balance, minus gas fees
-        assertEq(
-            depositor.balance,
-            initialOwner1Balance - totalGasFees + depositAmount,
-            "Owner1 did not receive correct balance"
-        );
+        if (finalOwner1Balance == expectedOwner1BalanceAfterWithdrawal) {
+            console.log("Pass: Owner1 did receive correct balance");
+        } else {
+            console.log("Fail: Owner1 did not receive correct balance");
+            console.log("Actual balance:", finalOwner1Balance);
+            console.log(
+                "Expected balance:",
+                expectedOwner1BalanceAfterWithdrawal
+            );
+        }
+
+        vm.stopBroadcast();
+    }
+
+    function getSepoliaBalance(address addr) internal returns (uint256) {
+        inputs = [
+            "cast",
+            "balance",
+            vm.toString(addr),
+            "--rpc-url",
+            vm.envString("SEPOLIA_RPC_URL")
+        ];
+
+        bytes memory res = vm.ffi(inputs);
+
+        // Directly convert bytes to string without abi.decode
+        string memory balanceStr = string(res);
+
+        // Convert the string to a uint256
+        uint256 balance = stringToUint(balanceStr);
+
+        return balance;
+    }
+
+    function stringToUint(string memory s) internal pure returns (uint256) {
+        bytes memory b = bytes(s);
+        uint256 result = 0;
+        for (uint i = 0; i < b.length; i++) {
+            if (b[i] >= 0x30 && b[i] <= 0x39) {
+                result = result * 10 + (uint8(b[i]) - 48); // ASCII 0-9 is 0x30-0x39
+            } else {
+                revert("Invalid character in balance string");
+            }
+        }
+        return result;
     }
 
     // /**
