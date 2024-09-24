@@ -167,8 +167,7 @@ async function main() {
   // Calculate the expected final balance of owner1 after gas costs
   const expectedFinalBalance = initialOwner1Balance
     .sub(gasUsedDeposit) // Subtract gas used in deposit
-    .sub(gasUsedWithdrawal) // Subtract gas used in withdrawal
-    .add(depositAmount); // Add deposited amount back after withdrawal
+    .sub(gasUsedWithdrawal); // Subtract gas used in withdrawal
 
   console.log(
     `Expected Final Owner1 Balance after Gas Costs: ${ethers.utils.formatEther(

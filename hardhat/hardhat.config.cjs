@@ -1,6 +1,6 @@
 require("@nomicfoundation/hardhat-toolbox");
-require("@nomicfoundation/hardhat-ethers");
-require("@nomiclabs/hardhat-ethers"); // Ensure this is included
+// require("@nomicfoundation/hardhat-ethers");
+// require("@nomiclabs/hardhat-ethers"); // Ensure this is included
 require("dotenv").config({ path: "../.env" });
 
 module.exports = {
