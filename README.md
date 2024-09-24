@@ -106,10 +106,12 @@ deployscript für simpleERC20 schreiben #Deployed at 0xbD89C92329E24a6abdE36e3aa
 deployscript für simpleERC721 schreiben #Deployed at 0x76590a96a63688Ad1c7422fbAa6EFB66C9ba176a ✅
 \testscript auf sepolia fork validieren - Overpaying problem is probably just because of dust left on these addresses, so instead of checking the absolute balance, check the difference between initial and final balance ✅
 
-➡️ neues einfaches testscript schreiben um die funktion auf tatsächlichem sepolia testnet zu validieren
+neues einfaches testscript schreiben um die funktion auf tatsächlichem sepolia testnet zu validieren
 Also foundry kann nicht einfach ein script einfach auf der sepolia evm laufen lassen... cGPT sagt man kann vlt ethers.js oder web3.js nutzen oder über polling foundry dazu zwingen seine daten vom testnet zu holen...
 ich könnte auch ein testscript in hardhat schreiben, aber ich denke dann wäre es vlt auch besser im foundry projekt mit ethers.js oder web3.js ein javascript testscript zu schreiben.
-ich kann auch mit chisel oder cast (?) die tests komplett manuell machen... aber das finde ich schon kacke, dass ich dann nicht dokumentieren und nachweisen kann, dass ich die tests gemacht hatte und sie erfolgreich waren.
+ich kann auch mit chisel oder cast (?) die tests komplett manuell machen... aber das finde ich schon kacke, dass ich dann nicht dokumentieren und nachweisen kann, dass ich die tests gemacht hatte und sie erfolgreich waren. ✅
+
+➡️ based on the existing test of sending eth to the wallet in hardhat, create more test scripts that are testing other basic functions and reverting back to the initial state after.
 
 create a new wallet (maybe metamask on the business brave profile) and put some real ETH on it
 _Mainnet deploy_
