@@ -111,6 +111,7 @@ Also foundry kann nicht einfach ein script einfach auf der sepolia evm laufen la
 ich könnte auch ein testscript in hardhat schreiben, aber ich denke dann wäre es vlt auch besser im foundry projekt mit ethers.js oder web3.js ein javascript testscript zu schreiben.
 ich kann auch mit chisel oder cast (?) die tests komplett manuell machen... aber das finde ich schon kacke, dass ich dann nicht dokumentieren und nachweisen kann, dass ich die tests gemacht hatte und sie erfolgreich waren.
 
+create a new wallet (maybe metamask on the business brave profile) and put some real ETH on it
 _Mainnet deploy_
 
 ---
