@@ -101,7 +101,7 @@ licence files niklas vergleichen ✅
   doublecheck that if a multisigowner gets deleted that the numconfirmation gets reduced in case otherwise there would be more confirmations required than multisigowners exist. ✅
 
 Testnet tests:
-deployscript für multisigWallet schreiben #Deployed at 0x205750B139d821A87caBD52757be99DC92FF07D0 ✅
+deployscript für multisigWallet schreiben #Deployed at 0x205750B139d821A87caBD52757be99DC92FF07D0 - later changed and redeployed at 0x0aD2C8cc921f660F0661c0588473155468606f9a ✅
 deployscript für simpleERC20 schreiben #Deployed at 0xbD89C92329E24a6abdE36e3aa44F17B396d62422 ✅
 deployscript für simpleERC721 schreiben #Deployed at 0x76590a96a63688Ad1c7422fbAa6EFB66C9ba176a ✅
 \testscript auf sepolia fork validieren - Overpaying problem is probably just because of dust left on these addresses, so instead of checking the absolute balance, check the difference between initial and final balance ✅
@@ -112,6 +112,7 @@ ich könnte auch ein testscript in hardhat schreiben, aber ich denke dann wäre 
 ich kann auch mit chisel oder cast (?) die tests komplett manuell machen... aber das finde ich schon kacke, dass ich dann nicht dokumentieren und nachweisen kann, dass ich die tests gemacht hatte und sie erfolgreich waren. ✅
 
 make the testscript an actuall chai test. The problem loop i am facing now is since i did yarn add --dev @nomicfoundation/hardhat-chai-matchers@latest chai@latest - so find a way to revert this and go on from there -- maybe i should just go back to the last commit ✅
+added event log checks ✅
 
 ➡️ add more functions to the testscript which test the contracts functionality
 
@@ -123,6 +124,12 @@ _Mainnet deploy_
 .
 .
 .
+
+check how much gasfees are when doing the regular stuff
+
+use dotenv for the depoly scripts
+
+dont use dotenv at all and do it like patrick cyfrin explains it
 
 CI workflow run CI: All jobs have failed
 

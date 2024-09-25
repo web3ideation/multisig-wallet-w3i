@@ -23,7 +23,16 @@ module.exports = {
     artifacts: "./artifacts",
   },
 
+  defaultNetwork: "hardhat",
   networks: {
+    hardhat: {
+      chainId: 31337,
+      blockConfirmations: 1,
+    },
+    localhost: {
+      chainId: 31337,
+      blockConfirmations: 1,
+    },
     sepolia: {
       url: process.env.SEPOLIA_RPC_URL, // e.g., Infura or Alchemy URL
       accounts: [process.env.OWNER1_PRIVATE_KEY], // Private key of owner1

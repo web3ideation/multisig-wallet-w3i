@@ -5,10 +5,10 @@
 // See the LICENSE and NOTICE files for more details.
 pragma solidity ^0.8.7;
 
-import "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
-import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import "openzeppelin-contracts/contracts/token/ERC721/IERC721.sol";
-import "openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 
 /**
  * @title MultisigWallet
@@ -33,20 +33,20 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      * @param txIndex The index of the submitted transaction.
      * @param to The address to which the transaction is directed.
      * @param value The amount of Ether sent in the transaction.
-     * @param data The data payload of the transaction.
      * @param tokenAddress The address of the token contract (if applicable).
      * @param amountOrTokenId The amount of tokens or the token ID (if applicable).
      * @param owner The address of the owner who submitted the transaction.
+     * @param data The data payload of the transaction.
      */
     event SubmitTransaction(
         TransactionType indexed _transactionType,
         uint256 indexed txIndex,
         address indexed to,
         uint256 value,
-        bytes data,
         address tokenAddress,
         uint256 amountOrTokenId,
-        address owner
+        address owner,
+        bytes data
     );
 
     /**
@@ -69,20 +69,20 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      * @param txIndex The index of the executed transaction.
      * @param to The address to which the transaction was sent.
      * @param value The amount of Ether sent in the transaction.
-     * @param data The data payload of the transaction.
      * @param tokenAddress The address of the token contract (if applicable).
      * @param amountOrTokenId The amount of tokens or the token ID (if applicable).
      * @param owner The address of the owner who executed the transaction.
+     * @param data The data payload of the transaction.
      */
     event ExecuteTransaction(
         TransactionType indexed _transactionType,
         uint256 indexed txIndex,
         address indexed to,
         uint256 value,
-        bytes data,
         address tokenAddress,
         uint256 amountOrTokenId,
-        address owner
+        address owner,
+        bytes data
     );
 
     /**
@@ -309,10 +309,10 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
             txIndex,
             recipient,
             _value,
-            _data,
             tokenAddress,
             _amountOrTokenId,
-            msg.sender
+            msg.sender,
+            _data
         );
 
         confirmTransaction(txIndex);
@@ -412,10 +412,10 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
             _txIndex,
             recipient,
             value,
-            data,
             tokenAddress,
             amountOrTokenId,
-            msg.sender
+            msg.sender,
+            data
         );
     }
 
@@ -429,7 +429,10 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         uint256 _txIndex
     ) public onlyMultisigOwner txExists(_txIndex) isActive(_txIndex) {
         Transaction storage transaction = transactions[_txIndex];
-        require(transaction.isActive, "MultisigWallet: Transaction is not active");
+        require(
+            transaction.isActive,
+            "MultisigWallet: Transaction is not active"
+        );
         require(
             isConfirmed[_txIndex][msg.sender],
             "MultisigWallet: Transaction has not been confirmed"

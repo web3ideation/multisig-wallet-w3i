@@ -33,20 +33,20 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      * @param txIndex The index of the submitted transaction.
      * @param to The address to which the transaction is directed.
      * @param value The amount of Ether sent in the transaction.
-     * @param data The data payload of the transaction.
      * @param tokenAddress The address of the token contract (if applicable).
      * @param amountOrTokenId The amount of tokens or the token ID (if applicable).
      * @param owner The address of the owner who submitted the transaction.
+     * @param data The data payload of the transaction.
      */
     event SubmitTransaction(
         TransactionType indexed _transactionType,
         uint256 indexed txIndex,
         address indexed to,
         uint256 value,
-        bytes data,
         address tokenAddress,
         uint256 amountOrTokenId,
-        address owner
+        address owner,
+        bytes data
     );
 
     /**
@@ -69,20 +69,20 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      * @param txIndex The index of the executed transaction.
      * @param to The address to which the transaction was sent.
      * @param value The amount of Ether sent in the transaction.
-     * @param data The data payload of the transaction.
      * @param tokenAddress The address of the token contract (if applicable).
      * @param amountOrTokenId The amount of tokens or the token ID (if applicable).
      * @param owner The address of the owner who executed the transaction.
+     * @param data The data payload of the transaction.
      */
     event ExecuteTransaction(
         TransactionType indexed _transactionType,
         uint256 indexed txIndex,
         address indexed to,
         uint256 value,
-        bytes data,
         address tokenAddress,
         uint256 amountOrTokenId,
-        address owner
+        address owner,
+        bytes data
     );
 
     /**
@@ -309,10 +309,10 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
             txIndex,
             recipient,
             _value,
-            _data,
             tokenAddress,
             _amountOrTokenId,
-            msg.sender
+            msg.sender,
+            _data
         );
 
         confirmTransaction(txIndex);
@@ -412,10 +412,10 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
             _txIndex,
             recipient,
             value,
-            data,
             tokenAddress,
             amountOrTokenId,
-            msg.sender
+            msg.sender,
+            data
         );
     }
 
