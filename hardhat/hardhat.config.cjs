@@ -1,6 +1,6 @@
-require("@nomicfoundation/hardhat-toolbox");
-// require("@nomicfoundation/hardhat-ethers");
-// require("@nomiclabs/hardhat-ethers"); // Ensure this is included
+require("@nomiclabs/hardhat-waffle");
+require("@nomiclabs/hardhat-etherscan");
+require("hardhat-deploy");
 require("dotenv").config({ path: "../.env" });
 
 module.exports = {
@@ -28,5 +28,8 @@ module.exports = {
       url: process.env.SEPOLIA_RPC_URL, // e.g., Infura or Alchemy URL
       accounts: [process.env.OWNER1_PRIVATE_KEY], // Private key of owner1
     },
+  },
+  mocha: {
+    timeout: 60000, // 60 seconds timeout
   },
 };
