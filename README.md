@@ -101,7 +101,7 @@ licence files niklas vergleichen ✅
   doublecheck that if a multisigowner gets deleted that the numconfirmation gets reduced in case otherwise there would be more confirmations required than multisigowners exist. ✅
 
 Testnet tests:
-deployscript für multisigWallet schreiben #Deployed at 0x205750B139d821A87caBD52757be99DC92FF07D0 - later changed and redeployed at 0x0aD2C8cc921f660F0661c0588473155468606f9a ✅
+deployscript für multisigWallet schreiben #Deployed at 0x205750B139d821A87caBD52757be99DC92FF07D0 - later changed and redeployed at 0x0aD2C8cc921f660F0661c0588473155468606f9a - later changed and redeployed at 0x64890a1ddD3Cea0A14D62E14fE76C4a1b34A4328 ✅
 deployscript für simpleERC20 schreiben #Deployed at 0xbD89C92329E24a6abdE36e3aa44F17B396d62422 ✅
 deployscript für simpleERC721 schreiben #Deployed at 0x76590a96a63688Ad1c7422fbAa6EFB66C9ba176a ✅
 \testscript auf sepolia fork validieren - Overpaying problem is probably just because of dust left on these addresses, so instead of checking the absolute balance, check the difference between initial and final balance ✅
@@ -120,7 +120,10 @@ add simpleErc721 and simpleERC20 ✅ (sepolia already deployed)
 let erc20 get transfered at 2 owners ✅
 let erc20 get transferFrom at 2 owners ✅
 let erc721 get transfered at 4 owners ✅
-➡️ let other function do something at 3 owners (ask chat gpt for an example)
+let other function do something ✅
+
+➡️ adapt the testscript for staging on sepolia and let it run once (be aware of gas costs!)
+deploy that new version of the multisig wallet and change the address in the .env ✅
 
 create a new wallet (maybe metamask on the business brave profile) and put some real ETH on it
 
