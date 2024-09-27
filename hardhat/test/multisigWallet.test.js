@@ -896,6 +896,172 @@ describe("MultisigWallet", function () {
     // Assertion with margin
     expect(absBalanceDifference <= GAS_MARGIN).to.be.true;
   });
+
+  it("can receive and send ERC721 Tokens", async function () {
+    // Deploy SimpleERC721 contract and mint a token to owner1
+
+    // Connect to owner1
+    const SimpleERC721Factory = await ethers.getContractFactory("SimpleERC721");
+
+    // Deploy the contract connected as owner1
+    const simpleERC721 = await SimpleERC721Factory.connect(owner1).deploy();
+
+    // Mint a new token to owner1
+    const tokenId = 1;
+    const mintTx = await simpleERC721
+      .connect(owner1)
+      .mint(owner1.address, tokenId);
+    await mintTx.wait();
+
+    // Verify that owner1 owns the token
+    const ownerOfToken = await simpleERC721.ownerOf(tokenId);
+    expect(ownerOfToken).to.equal(owner1.address);
+
+    // Now, let owner1 transfer the token to the multisigWallet
+
+    // Owner1 transfers the token to multisigWallet
+    const transferTx = await simpleERC721
+      .connect(owner1)
+      .transferFrom(owner1.address, multisigWallet.target, tokenId);
+
+    await transferTx.wait();
+
+    // Verify that multisigWallet has received the token
+    const newOwnerOfToken = await simpleERC721.ownerOf(tokenId);
+    expect(newOwnerOfToken).to.equal(multisigWallet.target);
+
+    // Now, owner2 submits a safeTransferFromERC721 transaction to transfer the token from multisigWallet to owner2
+
+    // Connect multisigWallet as owner2
+    multisigWallet = multisigWallet.connect(owner2);
+
+    // Owner2 calls safeTransferFromERC721
+    const submitTx = await multisigWallet.safeTransferFromERC721(
+      simpleERC721.target,
+      multisigWallet.target, // _from
+      owner2.address, // _to
+      tokenId // _tokenId
+    );
+
+    const submitReceipt = await submitTx.wait();
+
+    // Check emitted events for submit and confirm (since confirm is triggered automatically after submitting)
+    const submitBlock = submitReceipt.blockNumber;
+
+    // Filter for SubmitTransaction events
+    const submitEvents = await multisigWallet.queryFilter(
+      "SubmitTransaction",
+      submitBlock,
+      submitBlock
+    );
+
+    // Ensure that one SubmitTransaction event was emitted
+    expect(submitEvents.length).to.equal(1);
+
+    const submitEvent = submitEvents[0];
+
+    // Now, encode the data as in the contract to compare
+    const expectedData = simpleERC721.interface.encodeFunctionData(
+      "safeTransferFrom(address,address,uint256)",
+      [
+        multisigWallet.target, // _from
+        owner2.address, // _to
+        tokenId, // _tokenId
+      ]
+    );
+
+    // Assert that the Event is emitted as expected
+    expect(submitEvent.args._transactionType).to.equal(2n); // For ERC721
+    expect(submitEvent.args.to).to.equal(owner2.address);
+    expect(submitEvent.args.value).to.equal(0n);
+    expect(submitEvent.args.tokenAddress).to.equal(simpleERC721.target);
+    expect(submitEvent.args.amountOrTokenId).to.equal(1n);
+    expect(submitEvent.args.owner).to.equal(owner2.address);
+    expect(submitEvent.args.data).to.equal(expectedData);
+
+    // Confirm is triggered automatically after submitting
+    // Check the ConfirmTransaction event
+    const confirmEvents = await multisigWallet.queryFilter(
+      "ConfirmTransaction",
+      submitBlock,
+      submitBlock
+    );
+
+    expect(confirmEvents.length).to.equal(1);
+
+    const confirmEvent = confirmEvents[0];
+
+    expect(confirmEvent.args.owner).to.equal(owner2.address);
+    expect(confirmEvent.args.txIndex).to.equal(submitEvent.args.txIndex);
+
+    // Now, owner4 needs to confirm the transaction
+
+    // Connect multisigWallet as owner4
+    multisigWallet = multisigWallet.connect(owner4);
+
+    // Owner4 confirms the transaction
+    const confirmTxOwner4 = await multisigWallet.confirmTransaction(
+      submitEvent.args.txIndex
+    );
+
+    await confirmTxOwner4.wait();
+
+    // Now, owner1 needs to confirm the transaction
+
+    // Connect multisigWallet as owner1
+    multisigWallet = multisigWallet.connect(owner1);
+
+    // Owner1 confirms the transaction
+    const confirmTx = await multisigWallet.confirmTransaction(
+      submitEvent.args.txIndex
+    );
+
+    const confirmReceipt = await confirmTx.wait();
+
+    // This should trigger the execution as well
+
+    // Check event logs for confirm and execution
+    const confirmBlock = confirmReceipt.blockNumber;
+
+    // Check the ConfirmTransaction event
+    const owner1ConfirmEvents = await multisigWallet.queryFilter(
+      "ConfirmTransaction",
+      confirmBlock,
+      confirmBlock
+    );
+
+    expect(owner1ConfirmEvents.length).to.equal(1);
+
+    const owner1ConfirmEvent = owner1ConfirmEvents[0];
+
+    expect(owner1ConfirmEvent.args.owner).to.equal(owner1.address);
+    expect(owner1ConfirmEvent.args.txIndex).to.equal(submitEvent.args.txIndex);
+
+    // Check the ExecuteTransaction event
+    const executeEvents = await multisigWallet.queryFilter(
+      "ExecuteTransaction",
+      confirmBlock,
+      confirmBlock
+    );
+
+    expect(executeEvents.length).to.equal(1);
+
+    const executeEvent = executeEvents[0];
+
+    expect(executeEvent.args._transactionType).to.equal(2n); // ERC721
+    expect(executeEvent.args.txIndex).to.equal(submitEvent.args.txIndex);
+    expect(executeEvent.args.to).to.equal(owner2.address);
+    expect(executeEvent.args.value).to.equal(0n);
+    expect(executeEvent.args.tokenAddress).to.equal(simpleERC721.target);
+    expect(executeEvent.args.amountOrTokenId).to.equal(1n);
+    expect(executeEvent.args.owner).to.equal(owner1.address);
+    expect(executeEvent.args.data).to.equal(expectedData);
+
+    // Now, verify that owner2 has received the token
+    const finalOwnerOfToken = await simpleERC721.ownerOf(tokenId);
+    expect(finalOwnerOfToken).to.equal(owner2.address);
+  });
+
   //
   // Now revert back to initial Status by removing all owners except Owner1
 
