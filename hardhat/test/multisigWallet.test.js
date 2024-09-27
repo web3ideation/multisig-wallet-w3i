@@ -1062,6 +1062,169 @@ describe("MultisigWallet", function () {
     expect(finalOwnerOfToken).to.equal(owner2.address);
   });
 
+  it("can submit and execute an 'other' transaction (approve ERC721 for owner4)", async function () {
+    // Deploy SimpleERC721 contract and mint a token to owner1
+
+    // Connect to owner1
+    const SimpleERC721Factory = await ethers.getContractFactory("SimpleERC721");
+
+    // Deploy the contract connected as owner1
+    const simpleERC721 = await SimpleERC721Factory.connect(owner1).deploy();
+
+    // Mint a new token to owner1
+    const tokenId = 1;
+    const mintTx = await simpleERC721
+      .connect(owner1)
+      .mint(owner1.address, tokenId);
+    await mintTx.wait();
+
+    // Verify that owner1 owns the token
+    const ownerOfToken = await simpleERC721.ownerOf(tokenId);
+    expect(ownerOfToken).to.equal(owner1.address);
+
+    // Owner1 transfers the token to multisigWallet
+    const transferTx = await simpleERC721
+      .connect(owner1)
+      .transferFrom(owner1.address, multisigWallet.target, tokenId);
+
+    await transferTx.wait();
+
+    // Verify that multisigWallet has received the token
+    const newOwnerOfToken = await simpleERC721.ownerOf(tokenId);
+    expect(newOwnerOfToken).to.equal(multisigWallet.target);
+
+    // Now, owner2 submits an 'other' transaction to approve owner4 to manage the token
+
+    // Prepare the data for the `approve` call
+    const approvalData = simpleERC721.interface.encodeFunctionData("approve", [
+      owner4.address, // Approve owner4 to manage the token
+      tokenId, // The tokenId of the token held by multisigWallet
+    ]);
+
+    // Connect multisigWallet as owner2
+    multisigWallet = multisigWallet.connect(owner2);
+
+    // Owner2 submits the 'other' transaction
+    const submitTx = await multisigWallet.submitTransaction(
+      5n, // Enum for "other" transaction type (TransactionType.Other)
+      simpleERC721.target, // The contract we're interacting with (SimpleERC721)
+      0, // No ETH value being sent
+      approvalData // The data encoding the approve function call
+    );
+
+    const submitReceipt = await submitTx.wait();
+
+    // Check emitted events for submit and confirm (since confirm is triggered automatically after submitting)
+    const submitBlock = submitReceipt.blockNumber;
+
+    // Filter for SubmitTransaction events
+    const submitEvents = await multisigWallet.queryFilter(
+      "SubmitTransaction",
+      submitBlock,
+      submitBlock
+    );
+
+    // Ensure that one SubmitTransaction event was emitted
+    expect(submitEvents.length).to.equal(1);
+
+    const submitEvent = submitEvents[0];
+
+    // Assert that the Event is emitted as expected
+    expect(submitEvent.args._transactionType).to.equal(5n); // For "other"
+    expect(submitEvent.args.to).to.equal(simpleERC721.target);
+    expect(submitEvent.args.value).to.equal(0n);
+    expect(submitEvent.args.tokenAddress).to.equal(
+      "0x0000000000000000000000000000000000000000"
+    ); // No tokenAddress for "other"
+    expect(submitEvent.args.amountOrTokenId).to.equal(0n);
+    expect(submitEvent.args.owner).to.equal(owner2.address);
+    expect(submitEvent.args.data).to.equal(approvalData);
+
+    // Confirm is triggered automatically after submitting
+    // Check the ConfirmTransaction event
+    const confirmEvents = await multisigWallet.queryFilter(
+      "ConfirmTransaction",
+      submitBlock,
+      submitBlock
+    );
+
+    expect(confirmEvents.length).to.equal(1);
+
+    const confirmEvent = confirmEvents[0];
+
+    expect(confirmEvent.args.owner).to.equal(owner2.address);
+    expect(confirmEvent.args.txIndex).to.equal(submitEvent.args.txIndex);
+
+    // Now, owner4 needs to confirm the transaction
+
+    // Connect multisigWallet as owner4
+    multisigWallet = multisigWallet.connect(owner4);
+
+    // Owner4 confirms the transaction
+    const confirmTxOwner4 = await multisigWallet.confirmTransaction(
+      submitEvent.args.txIndex
+    );
+
+    await confirmTxOwner4.wait();
+
+    // Now, owner1 needs to confirm the transaction
+
+    // Connect multisigWallet as owner1
+    multisigWallet = multisigWallet.connect(owner1);
+
+    // Owner1 confirms the transaction
+    const confirmTx = await multisigWallet.confirmTransaction(
+      submitEvent.args.txIndex
+    );
+
+    const confirmReceipt = await confirmTx.wait();
+
+    // This should trigger the execution as well
+
+    // Check event logs for confirm and execution
+    const confirmBlock = confirmReceipt.blockNumber;
+
+    // Check the ConfirmTransaction event
+    const owner1ConfirmEvents = await multisigWallet.queryFilter(
+      "ConfirmTransaction",
+      confirmBlock,
+      confirmBlock
+    );
+
+    expect(owner1ConfirmEvents.length).to.equal(1);
+
+    const owner1ConfirmEvent = owner1ConfirmEvents[0];
+
+    expect(owner1ConfirmEvent.args.owner).to.equal(owner1.address);
+    expect(owner1ConfirmEvent.args.txIndex).to.equal(submitEvent.args.txIndex);
+
+    // Check the ExecuteTransaction event
+    const executeEvents = await multisigWallet.queryFilter(
+      "ExecuteTransaction",
+      confirmBlock,
+      confirmBlock
+    );
+
+    expect(executeEvents.length).to.equal(1);
+
+    const executeEvent = executeEvents[0];
+
+    expect(executeEvent.args._transactionType).to.equal(5n); // For "other"
+    expect(executeEvent.args.txIndex).to.equal(submitEvent.args.txIndex);
+    expect(executeEvent.args.to).to.equal(simpleERC721.target);
+    expect(executeEvent.args.value).to.equal(0n);
+    expect(executeEvent.args.tokenAddress).to.equal(
+      "0x0000000000000000000000000000000000000000"
+    ); // No tokenAddress for "other"
+    expect(executeEvent.args.amountOrTokenId).to.equal(0n);
+    expect(executeEvent.args.owner).to.equal(owner1.address);
+    expect(executeEvent.args.data).to.equal(approvalData);
+
+    // Now, verify that owner4 has been approved to manage the token
+    const approvedAddress = await simpleERC721.getApproved(tokenId);
+    expect(approvedAddress).to.equal(owner4.address);
+  });
+
   //
   // Now revert back to initial Status by removing all owners except Owner1
 

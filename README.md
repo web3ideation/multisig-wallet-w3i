@@ -114,13 +114,13 @@ ich kann auch mit chisel oder cast (?) die tests komplett manuell machen... aber
 make the testscript an actuall chai test. The problem loop i am facing now is since i did yarn add --dev @nomicfoundation/hardhat-chai-matchers@latest chai@latest - so find a way to revert this and go on from there -- maybe i should just go back to the last commit ✅
 added event log checks ✅
 
-➡️ add more functions to the testscript which test the contracts functionality
+add more functions to the testscript which test the contracts functionality
 let eth get transfered at 5 owners ✅
 add simpleErc721 and simpleERC20 ✅ (sepolia already deployed)
 let erc20 get transfered at 2 owners ✅
 let erc20 get transferFrom at 2 owners ✅
-let erc721 get transfered at 4 owners
-let other function do something at 3 owners (ask chat gpt for an example)
+let erc721 get transfered at 4 owners ✅
+➡️ let other function do something at 3 owners (ask chat gpt for an example)
 
 create a new wallet (maybe metamask on the business brave profile) and put some real ETH on it
 
