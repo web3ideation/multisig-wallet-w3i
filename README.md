@@ -122,12 +122,19 @@ let erc20 get transferFrom at 2 owners ✅
 let erc721 get transfered at 4 owners ✅
 let other function do something ✅
 
-➡️ adapt the testscript for staging on sepolia and let it run once (be aware of gas costs!)
+adapt the testscript for staging on sepolia and let it run once (be aware of gas costs!) ✅
 deploy that new version of the multisig wallet and change the address in the .env ✅
 
-create a new wallet (maybe metamask on the business brave profile) and put some real ETH on it
+create a new wallet (maybe metamask on the business brave profile) and put 500€ real ETH on it✅
 
-Gasusage checken fürs deployment
+Gasusage checken fürs deployment: ✅
+deployment gas: 2575191 x 10^(-9) x 10 | x 40 = 0,02575191ETH <-> 0,10300764ETH = 62,35EUR <-> 249,43EUR
+submit transaction: 200001 x 10^(-9) x 10 | x 40 = 0,00200001ETH <-> 0,00800004ETH = 4,84EUR <-> 19,37EUR
+send ERC721 transaction: 222734 x 10^(-9) x 10 | x 40 = 0,00222734ETH <-> 0,00890936ETH = 5,39EUR <-> 21,57EUR
+confirm transaction: 93255 x 10^(-9)x 10 | x 40 = 0,00093255ETH <-> 0,0037302ETH = 2,25EUR <-> 9,03ETH
+last confirm (execute): 238701 x 10^(-9) x 10 | x 40 = 0,00238701ETH <-> 0,00954804 = 5,78ETH <-> 23,12EUR
+
+➡️ prepare mainnet deploy script with real private key
 
 _Mainnet deploy_
 
