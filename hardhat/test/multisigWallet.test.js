@@ -298,6 +298,167 @@ describe("MultisigWallet", function () {
     expect(twoOwners).to.eql([owner1.address, owner2.address]);
     expect(twoOwnerCount).to.eql(2n);
   });
+
+  it("can send ERC20 Tokens on behalv", async function () {
+    // Deploy SimpleERC20 contract with initialSupply to owner1
+
+    // Connect to owner1
+    const SimpleERC20Factory = await ethers.getContractFactory("SimpleERC20");
+    const initialSupply = ethers.parseEther("100"); // 1000 tokens with 18 decimals
+
+    // Deploy the contract connected as owner1
+    const simpleERC20 = await SimpleERC20Factory.connect(owner1).deploy(
+      initialSupply
+    );
+
+    await simpleERC20.waitForDeployment();
+
+    // Now, simpleERC20 is deployed, and owner1 has initialSupply of tokens
+
+    // Verify that owner1 has the tokens
+    const owner1Balance = await simpleERC20.balanceOf(owner1.address);
+    expect(owner1Balance).to.equal(initialSupply);
+
+    // Now, let owner1 approve the multisigWallet to spend tokens on their behalf
+    const transferAmount = initialSupply;
+
+    // Owner1 approves the multisigWallet to spend tokens
+    const approveTx = await simpleERC20
+      .connect(owner1)
+      .approve(multisigWallet.target, transferAmount);
+    await approveTx.wait();
+
+    // Verify that multisigWallet has allowance from owner1
+    const allowance = await simpleERC20.allowance(
+      owner1.address,
+      multisigWallet.target
+    );
+    expect(allowance).to.equal(transferAmount);
+
+    // Now, owner2 submits a transferERC20 transaction to transfer tokens from multisigWallet to owner2
+
+    // Connect multisigWallet as owner2
+    multisigWallet = multisigWallet.connect(owner2);
+
+    // Owner2 calls transferFromERC20
+    const submitTx = await multisigWallet.transferFromERC20(
+      simpleERC20.target,
+      owner1.address,
+      owner2.address,
+      transferAmount
+    );
+
+    const submitReceipt = await submitTx.wait();
+
+    // Check emitted events for submit and confirm (since confirm is triggered automatically after submitting)
+    const submitBlock = submitReceipt.blockNumber;
+
+    // Filter for SubmitTransaction events
+    const submitEvents = await multisigWallet.queryFilter(
+      "SubmitTransaction",
+      submitBlock,
+      submitBlock
+    );
+
+    // Ensure that one SubmitTransaction event was emitted
+    expect(submitEvents.length).to.equal(1);
+
+    const submitEvent = submitEvents[0];
+
+    // Now, encode the data as in the contract to compare
+    const expectedData = simpleERC20.interface.encodeFunctionData(
+      "transferFrom",
+      [
+        owner1.address, // _from
+        owner2.address, // _to
+        transferAmount, // _amount
+      ]
+    );
+
+    // Assert that the Event is emitted as expected
+    expect(submitEvent.args._transactionType).to.equal(1n); // For ERC20
+    expect(submitEvent.args.to).to.equal(owner2.address);
+    expect(submitEvent.args.value).to.equal(0n);
+    expect(submitEvent.args.tokenAddress).to.equal(simpleERC20.target);
+    expect(submitEvent.args.amountOrTokenId).to.equal(transferAmount);
+    expect(submitEvent.args.owner).to.equal(owner2.address);
+    expect(submitEvent.args.data).to.be.equal(expectedData);
+
+    // Confirm is triggered automatically after submitting
+    // Check the ConfirmTransaction event
+    const confirmEvents = await multisigWallet.queryFilter(
+      "ConfirmTransaction",
+      submitBlock,
+      submitBlock
+    );
+
+    expect(confirmEvents.length).to.equal(1);
+
+    const confirmEvent = confirmEvents[0];
+
+    expect(confirmEvent.args.owner).to.equal(owner2.address);
+    expect(confirmEvent.args.txIndex).to.equal(submitEvent.args.txIndex);
+
+    // Now, owner1 needs to confirm the transaction
+
+    // Connect multisigWallet as owner1
+    multisigWallet = multisigWallet.connect(owner1);
+
+    // Owner1 confirms the transaction
+    const confirmTx = await multisigWallet.confirmTransaction(
+      submitEvent.args.txIndex
+    );
+
+    const confirmReceipt = await confirmTx.wait();
+
+    // This should trigger the execution as well
+
+    // Check event logs for confirm and execution
+    const confirmBlock = confirmReceipt.blockNumber;
+
+    // Check the ConfirmTransaction event
+    const owner1ConfirmEvents = await multisigWallet.queryFilter(
+      "ConfirmTransaction",
+      confirmBlock,
+      confirmBlock
+    );
+
+    expect(owner1ConfirmEvents.length).to.equal(1);
+
+    const owner1ConfirmEvent = owner1ConfirmEvents[0];
+
+    expect(owner1ConfirmEvent.args.owner).to.equal(owner1.address);
+    expect(owner1ConfirmEvent.args.txIndex).to.equal(submitEvent.args.txIndex);
+
+    // Check the ExecuteTransaction event
+    const executeEvents = await multisigWallet.queryFilter(
+      "ExecuteTransaction",
+      confirmBlock,
+      confirmBlock
+    );
+
+    expect(executeEvents.length).to.equal(1);
+
+    const executeEvent = executeEvents[0];
+
+    expect(executeEvent.args._transactionType).to.equal(1n); // ERC20
+    expect(executeEvent.args.txIndex).to.equal(submitEvent.args.txIndex);
+    expect(executeEvent.args.to).to.equal(owner2.address);
+    expect(executeEvent.args.value).to.equal(0n);
+    expect(executeEvent.args.tokenAddress).to.equal(simpleERC20.target);
+    expect(executeEvent.args.amountOrTokenId).to.equal(transferAmount);
+    expect(executeEvent.args.owner).to.equal(owner1.address);
+    expect(executeEvent.args.data).to.equal(expectedData);
+
+    // Now, verify that owner2 has received the tokens
+    const owner2Balance = await simpleERC20.balanceOf(owner2.address);
+    expect(owner2Balance).to.equal(transferAmount);
+
+    // Also, verify that owner1's balance has decreased
+    const owner1FinalBalance = await simpleERC20.balanceOf(owner1.address);
+    expect(owner1FinalBalance).to.equal(0n);
+  });
+
   it("can add Owner3", async function () {
     multisigWallet = multisigWallet.connect(owner1);
 

@@ -724,18 +724,34 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         if (transactionType == TransactionType.ERC20) {
             // ERC20 transfer(address recipient, uint256 amount)
             require(
-                data.length == 68,
+                data.length == 68 || data.length == 100,
                 "MultisigWallet: invalid data length for ERC20 transfer"
             );
 
             // Use assembly to extract parameters directly
-            assembly {
-                // Skip the first 36 bytes (32 bytes for length, 4 bytes for selector)
-                let paramsOffset := add(data, 36)
-                to := mload(paramsOffset) // Load address (recipient)
-                amountOrTokenId := mload(add(paramsOffset, 32)) // Load uint256 (amount)
+            if (data.length == 68) {
+                // Handle ERC20 transfer(address to, uint256 amount)
+                assembly {
+                    // data points to the bytes array in memory
+                    // Skip the first 32 bytes (length) and 4 bytes (selector)
+                    let paramsOffset := add(data, 36)
+                    to := mload(paramsOffset) // Load address (to) at data + 36
+                    amountOrTokenId := mload(add(paramsOffset, 32)) // Load uint256 (amount) at data + 68
+                }
+                return (to, amountOrTokenId);
+            } else if (data.length == 100) {
+                // Handle ERC20 transferFrom(address from, address to, uint256 amount)
+                assembly {
+                    // Skip the first 32 bytes (length) and 4 bytes (selector)
+                    let paramsOffset := add(data, 36)
+                    // from is at data + 36, but we don't need to use it
+                    let toAddr := mload(add(paramsOffset, 32)) // Load address (to) at data + 68
+                    let amount := mload(add(paramsOffset, 64)) // Load uint256 (amount) at data + 100
+                    to := toAddr
+                    amountOrTokenId := amount
+                }
+                return (to, amountOrTokenId);
             }
-            return (to, amountOrTokenId);
         } else if (transactionType == TransactionType.ERC721) {
             // ERC721 safeTransferFrom(address from, address to, uint256 tokenId)
             require(

@@ -116,8 +116,9 @@ added event log checks ✅
 
 ➡️ add more functions to the testscript which test the contracts functionality
 let eth get transfered at 5 owners ✅
-add simpleErc721 and simpleERC20 (sepolia already deployed)
-let erc20 get transfered at 2 owners
+add simpleErc721 and simpleERC20 ✅ (sepolia already deployed)
+let erc20 get transfered at 2 owners ✅
+let erc20 get transferFrom at 2 owners ✅
 let erc721 get transfered at 4 owners
 let other function do something at 3 owners (ask chat gpt for an example)
 
