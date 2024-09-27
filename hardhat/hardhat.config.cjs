@@ -38,7 +38,8 @@ module.exports = {
       accounts: [process.env.OWNER1_PRIVATE_KEY], // Private key of owner1
     },
   },
+
   mocha: {
-    timeout: 60000, // 60 seconds timeout
+    timeout: 600000, // 10 minutes timeout
   },
 };

@@ -1,90 +1,114 @@
-// test/multisigWallet.sepolia.test.js
+// test/multisigWallet.test.js
 
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 require("dotenv").config({ path: "../.env" });
 
-describe("MultisigWallet - Sepolia Testnet", function () {
+describe("MultisigWallet", function () {
   let multisigWallet;
   let owner1;
   let owner2;
   let owner3;
   let owner4;
   let owner5;
-  let provider;
+  //// let provider;
 
-  // Environment variables
-  const {
-    MULTISIGWALLET_ADDRESS,
-    OWNER1_ADDRESS,
-    OWNER1_PRIVATE_KEY,
-    OWNER2_ADDRESS,
-    OWNER2_PRIVATE_KEY,
-    OWNER3_ADDRESS,
-    OWNER3_PRIVATE_KEY,
-    OWNER4_ADDRESS,
-    OWNER4_PRIVATE_KEY,
-    OWNER5_ADDRESS,
-    OWNER5_PRIVATE_KEY,
-    SEPOLIA_RPC_URL,
-  } = process.env;
+  //// // Environment variables
+  //// const {
+  ////   MULTISIGWALLET_ADDRESS,
+  ////   OWNER1_ADDRESS,
+  ////   OWNER1_PRIVATE_KEY,
+  ////   OWNER2_ADDRESS,
+  ////   OWNER2_PRIVATE_KEY,
+  ////   OWNER3_ADDRESS,
+  ////   OWNER3_PRIVATE_KEY,
+  ////   OWNER4_ADDRESS,
+  ////   OWNER4_PRIVATE_KEY,
+  ////   OWNER5_ADDRESS,
+  ////   OWNER5_PRIVATE_KEY,
+  ////   SEPOLIA_RPC_URL,
+  //// } = process.env;
 
   // Constants
   const DEPOSIT_AMOUNT = ethers.parseEther("0.01"); // 0.01 ETH
   const GAS_MARGIN = ethers.parseEther("0.001"); // 0.001 ETH margin for gas discrepancies
 
   before(async function () {
-    // Validate environment variables
-    if (
-      !MULTISIGWALLET_ADDRESS ||
-      !OWNER1_ADDRESS ||
-      !OWNER1_PRIVATE_KEY ||
-      !SEPOLIA_RPC_URL
-    ) {
-      throw new Error(
-        "Please ensure MULTISIGWALLET_ADDRESS, OWNER1_ADDRESS, OWNER1_PRIVATE_KEY, and SEPOLIA_RPC_URL are set in your .env file"
-      );
-    }
+    //// // Validate environment variables
+    //// if (
+    ////   !MULTISIGWALLET_ADDRESS ||
+    ////   !OWNER1_ADDRESS ||
+    ////   !OWNER1_PRIVATE_KEY ||
+    ////   !SEPOLIA_RPC_URL
+    //// ) {
+    ////   throw new Error(
+    ////     "Please ensure MULTISIGWALLET_ADDRESS, OWNER1_ADDRESS, OWNER1_PRIVATE_KEY, and SEPOLIA_RPC_URL are set in your .env file"
+    ////   );
+    //// }
 
-    // Initialize provider for Sepolia
-    provider = new ethers.JsonRpcProvider(SEPOLIA_RPC_URL);
+    //// // Initialize provider for Sepolia
+    //// provider = new ethers.JsonRpcProvider(SEPOLIA_RPC_URL);
 
-    // Initialize signers using the private key
-    owner1 = new ethers.Wallet(OWNER1_PRIVATE_KEY, provider);
-    owner2 = new ethers.Wallet(OWNER2_PRIVATE_KEY, provider);
-    owner3 = new ethers.Wallet(OWNER3_PRIVATE_KEY, provider);
-    owner4 = new ethers.Wallet(OWNER4_PRIVATE_KEY, provider);
-    owner5 = new ethers.Wallet(OWNER5_PRIVATE_KEY, provider);
+    //// // Initialize signers using the private key
+    //// owner1 = new ethers.Wallet(OWNER1_PRIVATE_KEY, provider);
+    //// owner2 = new ethers.Wallet(OWNER2_PRIVATE_KEY, provider);
+    //// owner3 = new ethers.Wallet(OWNER3_PRIVATE_KEY, provider);
+    //// owner4 = new ethers.Wallet(OWNER4_PRIVATE_KEY, provider);
+    //// owner5 = new ethers.Wallet(OWNER5_PRIVATE_KEY, provider);
 
-    // Normalize and compare addresses using ethers.js
-    expect(ethers.getAddress(owner1.address)).to.equal(
-      ethers.getAddress(OWNER1_ADDRESS)
-    );
-    expect(ethers.getAddress(owner2.address)).to.equal(
-      ethers.getAddress(OWNER2_ADDRESS)
-    );
-    expect(ethers.getAddress(owner3.address)).to.equal(
-      ethers.getAddress(OWNER3_ADDRESS)
-    );
-    expect(ethers.getAddress(owner4.address)).to.equal(
-      ethers.getAddress(OWNER4_ADDRESS)
-    );
-    expect(ethers.getAddress(owner5.address)).to.equal(
-      ethers.getAddress(OWNER5_ADDRESS)
-    );
+    //// // Normalize and compare addresses using ethers.js
+    //// expect(ethers.getAddress(owner1.address)).to.equal(
+    ////   ethers.getAddress(OWNER1_ADDRESS)
+    //// );
+    //// expect(ethers.getAddress(owner2.address)).to.equal(
+    ////   ethers.getAddress(OWNER2_ADDRESS)
+    //// );
+    //// expect(ethers.getAddress(owner3.address)).to.equal(
+    ////   ethers.getAddress(OWNER3_ADDRESS)
+    //// );
+    //// expect(ethers.getAddress(owner4.address)).to.equal(
+    ////   ethers.getAddress(OWNER4_ADDRESS)
+    //// );
+    //// expect(ethers.getAddress(owner5.address)).to.equal(
+    ////   ethers.getAddress(OWNER5_ADDRESS)
+    //// );
 
-    // Connect owner1 to the MultisigWallet contract
-    multisigWallet = await ethers.getContractAt(
-      "MultisigWallet",
-      MULTISIGWALLET_ADDRESS,
-      owner1
+    //// // Connect owner1 to the MultisigWallet contract
+    //// multisigWallet = await ethers.getContractAt(
+    ////   "MultisigWallet",
+    ////   MULTISIGWALLET_ADDRESS,
+    ////   owner1
+    //// );
+
+    //// delete this Local environment
+    // Fetch signers
+    [owner1, owner2, owner3, owner4, owner5] = await ethers.getSigners();
+
+    // Log the signers for debugging
+    console.log("Deploying contracts with the following owners:");
+    console.log("Owner1:", owner1.address);
+    console.log("Owner2:", owner2.address);
+    console.log("Owner3:", owner3.address);
+    console.log("Owner4:", owner4.address);
+    console.log("Owner5:", owner5.address);
+
+    // Deploy the contract
+    const MultisigWalletFactory = await ethers.getContractFactory(
+      "MultisigWallet"
     );
+    multisigWallet = await MultisigWalletFactory.deploy([owner1.address]);
+
+    // Verify that the contract address is defined
+    expect(multisigWallet.target).to.properAddress;
   });
 
   it("MultisigWallet can receive deposits and withdraw with only one owner", async function () {
     // Fetch initial balances
-    const initialOwner1Balance = await provider.getBalance(owner1.address);
-    const initialWalletBalance = await provider.getBalance(
+    const initialOwner1Balance = await ethers.provider.getBalance(
+      owner1.address
+    ); //// replace ethers.provider with provide
+    const initialWalletBalance = await ethers.provider.getBalance(
+      //// replace ethers.provider with provide
       multisigWallet.target
     );
 
@@ -101,7 +125,8 @@ describe("MultisigWallet - Sepolia Testnet", function () {
     const gasUsedDeposit = depositReceipt.gasUsed * depositReceipt.gasPrice;
 
     // Fetch wallet balance after deposit
-    const walletBalanceAfterDeposit = await provider.getBalance(
+    const walletBalanceAfterDeposit = await ethers.provider.getBalance(
+      //// replace ethers.provider with provide
       multisigWallet.target
     );
 
@@ -151,7 +176,10 @@ describe("MultisigWallet - Sepolia Testnet", function () {
       withdrawalReceipt.gasUsed * withdrawalReceipt.gasPrice;
 
     // Fetch final wallet balance
-    const finalWalletBalance = await provider.getBalance(multisigWallet.target);
+    const finalWalletBalance = await ethers.provider.getBalance(
+      //// replace ethers.provider with provide
+      multisigWallet.target
+    );
 
     // Assertions
     expect(finalWalletBalance).to.equal(0n);
@@ -315,8 +343,6 @@ describe("MultisigWallet - Sepolia Testnet", function () {
 
       // Connect onwer2 to the MultisigWallet contract
       multisigWallet = multisigWallet.connect(owner2);
-
-      // /////////////// the sepolia test stopped here / started all the following testfunctions (maybe just redeploy...) ///////////////////////////////////////////////////////////////////////////////
 
       // confirm transaction
       const owner2ConfirmAddOwner3Tx = await multisigWallet.confirmTransaction(
@@ -500,7 +526,7 @@ describe("MultisigWallet - Sepolia Testnet", function () {
       const fiveOwners = await multisigWallet.getOwners();
       const fiveOwnerCount = await multisigWallet.getOwnerCount();
 
-      //Assert that owner1, owner2 and owner 3 are the Owners
+      // Assert that owner1, owner2 and owner 3 are the Owners
       expect(fiveOwners).to.eql([
         owner1.address,
         owner2.address,
@@ -566,7 +592,7 @@ describe("MultisigWallet - Sepolia Testnet", function () {
         owner1ConfirmAddOwner5Block
       );
 
-      // Ensure that one OwnerRemoved event was emitted
+      // Ensure that one OwnerAdded event was emitted
       expect(owner5AddedTxEvents.length).to.equal(1);
 
       const owner5AddedTxEvent = owner5AddedTxEvents[0];
@@ -741,7 +767,7 @@ describe("MultisigWallet - Sepolia Testnet", function () {
       const _fourOwners = await multisigWallet.getOwners();
       const fourOwnerCount = await multisigWallet.getOwnerCount();
 
-      //Assert that owner1, owner2, owner3 and owner4 are the Owners
+      // Assert that owner1, owner2, owner3 and owner4 are the Owners
       expect(_fourOwners).to.eql([
         owner1.address,
         owner2.address,
