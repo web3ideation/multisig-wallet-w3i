@@ -21,11 +21,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      * @param amountOrTokenId The amount of Ether or the token ID for ERC721 deposits.
      * @param balance The new balance of the wallet after the deposit.
      */
-    event Deposit(
-        address indexed sender,
-        uint256 indexed amountOrTokenId,
-        uint256 indexed balance
-    );
+    event Deposit(address indexed sender, uint256 indexed amountOrTokenId, uint256 indexed balance);
 
     /**
      * @notice Emitted when a transaction is submitted.
@@ -107,10 +103,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      * @param txIndex The index of the transaction that was deactivated.
      * @param owner The address of the owner who deactivated the transaction.
      */
-    event DeactivatedMyPendingTransaction(
-        uint indexed txIndex,
-        address indexed owner
-    );
+    event DeactivatedMyPendingTransaction(uint256 indexed txIndex, address indexed owner);
 
     /**
      * @notice Emitted when the contract receives an ERC721 token.
@@ -119,12 +112,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      * @param tokenId The identifier of the token being transferred.
      * @param data Additional data with no specified format.
      */
-    event ERC721Received(
-        address indexed operator,
-        address indexed from,
-        uint256 indexed tokenId,
-        bytes data
-    );
+    event ERC721Received(address indexed operator, address indexed from, uint256 indexed tokenId, bytes data);
 
     /**
      * @enum TransactionType
@@ -193,10 +181,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      * @param _txIndex The index of the transaction.
      */
     modifier txExists(uint256 _txIndex) {
-        require(
-            _txIndex < transactions.length,
-            "MultisigWallet: Transaction does not exist"
-        );
+        require(_txIndex < transactions.length, "MultisigWallet: Transaction does not exist");
         _;
     }
 
@@ -206,10 +191,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      * @param _txIndex The index of the transaction.
      */
     modifier isActive(uint256 _txIndex) {
-        require(
-            transactions[_txIndex].isActive,
-            "MultisigWallet: Transaction not active"
-        );
+        require(transactions[_txIndex].isActive, "MultisigWallet: Transaction not active");
         _;
     }
 
@@ -219,10 +201,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      * @param _txIndex The index of the transaction.
      */
     modifier notConfirmed(uint256 _txIndex) {
-        require(
-            !isConfirmed[_txIndex][msg.sender],
-            "MultisigWallet: transaction already confirmed by this owner"
-        );
+        require(!isConfirmed[_txIndex][msg.sender], "MultisigWallet: transaction already confirmed by this owner");
         _;
     }
 
@@ -232,17 +211,11 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      * @param _owners The array of addresses to be set as initial owners.
      */
     constructor(address[] memory _owners) {
-        require(
-            _owners.length > 0,
-            "MultisigWallet: at least one owner required"
-        );
+        require(_owners.length > 0, "MultisigWallet: at least one owner required");
 
         for (uint256 i = 0; i < _owners.length; i++) {
             address owner = _owners[i];
-            require(
-                owner != address(0),
-                "MultisigWallet: owner address cannot be zero"
-            );
+            require(owner != address(0), "MultisigWallet: owner address cannot be zero");
             require(!isOwner[owner], "MultisigWallet: duplicate owner address");
 
             isOwner[owner] = true;
@@ -266,12 +239,10 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      * @param _value The amount of Ether to send (if applicable).
      * @param _data The data payload of the transaction.
      */
-    function submitTransaction(
-        TransactionType _transactionType,
-        address _to,
-        uint256 _value,
-        bytes memory _data
-    ) public onlyMultisigOwner {
+    function submitTransaction(TransactionType _transactionType, address _to, uint256 _value, bytes memory _data)
+        public
+        onlyMultisigOwner
+    {
         uint256 txIndex = transactions.length;
 
         transactions.push(
@@ -290,29 +261,16 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         address tokenAddress = address(0);
         uint256 _amountOrTokenId = 0;
 
-        if (
-            _transactionType == TransactionType.ERC20 ||
-            _transactionType == TransactionType.ERC721
-        ) {
+        if (_transactionType == TransactionType.ERC20 || _transactionType == TransactionType.ERC721) {
             // Decode the data to extract the token address and amount / tokenId
-            (address to, uint256 amountOrTokenId) = decodeTransactionData(
-                _transactionType,
-                _data
-            );
+            (address to, uint256 amountOrTokenId) = decodeTransactionData(_transactionType, _data);
             recipient = to;
             tokenAddress = _to;
             _amountOrTokenId = amountOrTokenId;
         }
 
         emit SubmitTransaction(
-            _transactionType,
-            txIndex,
-            recipient,
-            _value,
-            tokenAddress,
-            _amountOrTokenId,
-            msg.sender,
-            _data
+            _transactionType, txIndex, recipient, _value, tokenAddress, _amountOrTokenId, msg.sender, _data
         );
 
         confirmTransaction(txIndex);
@@ -323,9 +281,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      * @dev Increments the confirmation count and executes the transaction if enough confirmations are reached.
      * @param _txIndex The index of the transaction to confirm.
      */
-    function confirmTransaction(
-        uint256 _txIndex
-    )
+    function confirmTransaction(uint256 _txIndex)
         public
         onlyMultisigOwner
         txExists(_txIndex)
@@ -351,10 +307,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      * @dev Performs the actual transaction based on its type and marks it as inactive after execution. For adding or removing multisig owners, the respective internal function get called.
      * @param _txIndex The index of the transaction to execute.
      */
-
-    function executeTransaction(
-        uint256 _txIndex
-    )
+    function executeTransaction(uint256 _txIndex)
         public
         txExists(_txIndex)
         isActive(_txIndex)
@@ -367,8 +320,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         TransactionType txType = transaction.transactionType;
 
         require(
-            hasEnoughConfirmations(numConfirmations, txType),
-            "MultisigWallet: insufficient confirmations to execute"
+            hasEnoughConfirmations(numConfirmations, txType), "MultisigWallet: insufficient confirmations to execute"
         );
 
         address to = transaction.to;
@@ -380,11 +332,8 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         } else if (txType == TransactionType.RemoveOwner) {
             removeOwnerInternal(to, _txIndex);
         } else {
-            require(
-                to != address(this),
-                "MultisigWallet: cannot call internal functions"
-            );
-            (bool success, ) = to.call{value: value}(data);
+            require(to != address(this), "MultisigWallet: cannot call internal functions");
+            (bool success,) = to.call{value: value}(data);
             require(success, "MultisigWallet: external call failed");
         }
 
@@ -394,29 +343,15 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         address tokenAddress = address(0);
         uint256 amountOrTokenId = 0;
 
-        if (
-            txType == TransactionType.ERC20 || txType == TransactionType.ERC721
-        ) {
+        if (txType == TransactionType.ERC20 || txType == TransactionType.ERC721) {
             // Decode the data to extract the token address and amount / tokenId
-            (address _to, uint256 _amountOrTokenId) = decodeTransactionData(
-                txType,
-                transaction.data
-            );
+            (address _to, uint256 _amountOrTokenId) = decodeTransactionData(txType, transaction.data);
             recipient = _to;
             tokenAddress = to;
             amountOrTokenId = _amountOrTokenId;
         }
 
-        emit ExecuteTransaction(
-            txType,
-            _txIndex,
-            recipient,
-            value,
-            tokenAddress,
-            amountOrTokenId,
-            msg.sender,
-            data
-        );
+        emit ExecuteTransaction(txType, _txIndex, recipient, value, tokenAddress, amountOrTokenId, msg.sender, data);
     }
 
     /**
@@ -424,19 +359,10 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      * @dev Decrements the confirmation count.
      * @param _txIndex The index of the transaction to revoke confirmation for.
      */
-
-    function revokeConfirmation(
-        uint256 _txIndex
-    ) public onlyMultisigOwner txExists(_txIndex) isActive(_txIndex) {
+    function revokeConfirmation(uint256 _txIndex) public onlyMultisigOwner txExists(_txIndex) isActive(_txIndex) {
         Transaction storage transaction = transactions[_txIndex];
-        require(
-            transaction.isActive,
-            "MultisigWallet: Transaction is not active"
-        );
-        require(
-            isConfirmed[_txIndex][msg.sender],
-            "MultisigWallet: Transaction has not been confirmed"
-        );
+        require(transaction.isActive, "MultisigWallet: Transaction is not active");
+        require(isConfirmed[_txIndex][msg.sender], "MultisigWallet: Transaction has not been confirmed");
 
         transaction.numConfirmations -= 1;
         isConfirmed[_txIndex][msg.sender] = false;
@@ -462,10 +388,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      * @param _newOwner The address of the new owner to be added.
      */
     function addOwner(address _newOwner) public onlyMultisigOwner {
-        require(
-            _newOwner != address(0),
-            "MultisigWallet: new owner address required"
-        );
+        require(_newOwner != address(0), "MultisigWallet: new owner address required");
         require(!isOwner[_newOwner], "MultisigWallet: owner already exists");
         submitTransaction(TransactionType.AddOwner, _newOwner, 0, "");
     }
@@ -476,20 +399,19 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      * @param _newOwner The address of the new owner to be added.
      * @param _txIndex The index of the transaction that triggered the addition.
      */
-    function addOwnerInternal(
-        address _newOwner,
-        uint256 _txIndex
-    ) internal onlyMultisigOwner txExists(_txIndex) isActive(_txIndex) {
+    function addOwnerInternal(address _newOwner, uint256 _txIndex)
+        internal
+        onlyMultisigOwner
+        txExists(_txIndex)
+        isActive(_txIndex)
+    {
         Transaction storage transaction = transactions[_txIndex];
         require(
             transaction.numConfirmations * 3 >= owners.length * 2,
             "MultisigWallet: insufficient confirmations to add owner"
         );
 
-        require(
-            !isOwner[_newOwner],
-            "MultisigWallet: address is already an owner"
-        );
+        require(!isOwner[_newOwner], "MultisigWallet: address is already an owner");
 
         // Clear pending transactions before adding the new owner
         deactivatePendingTransactions();
@@ -506,10 +428,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      * @param _owner The address of the owner to be removed.
      */
     function removeOwner(address _owner) public onlyMultisigOwner {
-        require(
-            _owner != address(0),
-            "MultisigWallet: owner Address that is to be removed is required"
-        );
+        require(_owner != address(0), "MultisigWallet: owner Address that is to be removed is required");
         require(isOwner[_owner], "MultisigWallet: address is not an owner");
         submitTransaction(TransactionType.RemoveOwner, _owner, 0, "");
     }
@@ -520,10 +439,12 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      * @param _owner The address of the owner to be removed.
      * @param _txIndex The index of the transaction that triggered the removal.
      */
-    function removeOwnerInternal(
-        address _owner,
-        uint256 _txIndex
-    ) internal onlyMultisigOwner txExists(_txIndex) isActive(_txIndex) {
+    function removeOwnerInternal(address _owner, uint256 _txIndex)
+        internal
+        onlyMultisigOwner
+        txExists(_txIndex)
+        isActive(_txIndex)
+    {
         Transaction storage transaction = transactions[_txIndex];
         require(
             transaction.numConfirmations * 3 >= owners.length * 2,
@@ -532,10 +453,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
 
         require(isOwner[_owner], "MultisigWallet: address is not an owner");
 
-        require(
-            owners.length > 1,
-            "MultisigWallet: cannot remove the last owner"
-        );
+        require(owners.length > 1, "MultisigWallet: cannot remove the last owner");
 
         // Clear pending transactions before adding the new owner
         deactivatePendingTransactions();
@@ -559,23 +477,12 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      * @param _to The recipient address.
      * @param _amount The amount of tokens to transfer.
      */
-    function transferERC20(
-        IERC20 _token,
-        address _to,
-        uint256 _amount
-    ) public onlyMultisigOwner {
-        require(
-            address(_token) != address(0),
-            "MultisigWallet: token address required"
-        );
+    function transferERC20(IERC20 _token, address _to, uint256 _amount) public onlyMultisigOwner {
+        require(address(_token) != address(0), "MultisigWallet: token address required");
         require(_to != address(0), "MultisigWallet: receiver address required");
         require(_amount > 0, "MultisigWallet: token amount required");
         // Encode the transfer data
-        bytes memory data = abi.encodeWithSelector(
-            _token.transfer.selector,
-            _to,
-            _amount
-        );
+        bytes memory data = abi.encodeWithSelector(_token.transfer.selector, _to, _amount);
         // Submit the transaction for confirmation
         submitTransaction(TransactionType.ERC20, address(_token), 0, data);
     }
@@ -588,29 +495,13 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      * @param _to The recipient address.
      * @param _amount The amount of tokens to transfer.
      */
-    function transferFromERC20(
-        IERC20 _token,
-        address _from,
-        address _to,
-        uint256 _amount
-    ) public onlyMultisigOwner {
-        require(
-            address(_token) != address(0),
-            "MultisigWallet: token address required"
-        );
-        require(
-            _from != address(0),
-            "MultisigWallet: the token-owners address is required"
-        );
+    function transferFromERC20(IERC20 _token, address _from, address _to, uint256 _amount) public onlyMultisigOwner {
+        require(address(_token) != address(0), "MultisigWallet: token address required");
+        require(_from != address(0), "MultisigWallet: the token-owners address is required");
         require(_to != address(0), "MultisigWallet: receiver address required");
         require(_amount > 0, "MultisigWallet: token amount required");
         // Encode the transferFrom data
-        bytes memory data = abi.encodeWithSelector(
-            _token.transferFrom.selector,
-            _from,
-            _to,
-            _amount
-        );
+        bytes memory data = abi.encodeWithSelector(_token.transferFrom.selector, _from, _to, _amount);
         // Submit the transaction for confirmation
         submitTransaction(TransactionType.ERC20, address(_token), 0, data);
     }
@@ -623,28 +514,15 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      * @param _to The recipient address.
      * @param _tokenId The ID of the token to transfer.
      */
-    function safeTransferFromERC721(
-        address _token,
-        address _from,
-        address _to,
-        uint256 _tokenId
-    ) public onlyMultisigOwner {
-        require(
-            address(_token) != address(0),
-            "MultisigWallet: token address required"
-        );
-        require(
-            _from != address(0),
-            "MultisigWallet: the tokenowners address is required"
-        );
+    function safeTransferFromERC721(address _token, address _from, address _to, uint256 _tokenId)
+        public
+        onlyMultisigOwner
+    {
+        require(address(_token) != address(0), "MultisigWallet: token address required");
+        require(_from != address(0), "MultisigWallet: the tokenowners address is required");
         require(_to != address(0), "MultisigWallet: receiver address required");
         // Encode the transferFrom data
-        bytes memory data = abi.encodeWithSignature(
-            "safeTransferFrom(address,address,uint256)",
-            _from,
-            _to,
-            _tokenId
-        );
+        bytes memory data = abi.encodeWithSignature("safeTransferFrom(address,address,uint256)", _from, _to, _tokenId);
         submitTransaction(TransactionType.ERC721, _token, 0, data);
     }
 
@@ -655,7 +533,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      */
     function deactivatePendingTransactions() internal {
         uint256 length = transactions.length;
-        for (uint256 i = 0; i < length; ) {
+        for (uint256 i = 0; i < length;) {
             Transaction storage txn = transactions[i];
             if (txn.isActive) {
                 txn.isActive = false;
@@ -672,9 +550,12 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      * @dev Marks the specified transaction as inactive if it was submitted by the caller.
      * @param _txIndex The index of the transaction to deactivate.
      */
-    function deactivateMyPendingTransaction(
-        uint _txIndex
-    ) public txExists(_txIndex) isActive(_txIndex) onlyMultisigOwner {
+    function deactivateMyPendingTransaction(uint256 _txIndex)
+        public
+        txExists(_txIndex)
+        isActive(_txIndex)
+        onlyMultisigOwner
+    {
         require(
             transactions[_txIndex].owner == msg.sender,
             "MultisigWallet: only the owner can clear their submitted transaction"
@@ -693,14 +574,12 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      * @param transactionType The type of the transaction.
      * @return True if the transaction has enough confirmations, false otherwise.
      */
-    function hasEnoughConfirmations(
-        uint64 numConfirmations,
-        TransactionType transactionType
-    ) internal view returns (bool) {
-        if (
-            transactionType == TransactionType.AddOwner ||
-            transactionType == TransactionType.RemoveOwner
-        ) {
+    function hasEnoughConfirmations(uint64 numConfirmations, TransactionType transactionType)
+        internal
+        view
+        returns (bool)
+    {
+        if (transactionType == TransactionType.AddOwner || transactionType == TransactionType.RemoveOwner) {
             // Important decisions require 2/3 or more confirmations
             return numConfirmations * 3 >= owners.length * 2;
         } else {
@@ -717,16 +596,14 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      * @return to The recipient address extracted from the data.
      * @return amountOrTokenId The amount of tokens or token ID extracted from the data.
      */
-    function decodeTransactionData(
-        TransactionType transactionType,
-        bytes memory data
-    ) internal pure returns (address to, uint256 amountOrTokenId) {
+    function decodeTransactionData(TransactionType transactionType, bytes memory data)
+        internal
+        pure
+        returns (address to, uint256 amountOrTokenId)
+    {
         if (transactionType == TransactionType.ERC20) {
             // ERC20 transfer(address recipient, uint256 amount)
-            require(
-                data.length == 68 || data.length == 100,
-                "MultisigWallet: invalid data length for ERC20 transfer"
-            );
+            require(data.length == 68 || data.length == 100, "MultisigWallet: invalid data length for ERC20 transfer");
 
             // Use assembly to extract parameters directly
             if (data.length == 68) {
@@ -754,10 +631,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
             }
         } else if (transactionType == TransactionType.ERC721) {
             // ERC721 safeTransferFrom(address from, address to, uint256 tokenId)
-            require(
-                data.length == 100,
-                "MultisigWallet: invalid data length for ERC721 transfer"
-            );
+            require(data.length == 100, "MultisigWallet: invalid data length for ERC721 transfer");
 
             // Use assembly to extract parameters directly
             assembly {
@@ -768,9 +642,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
             }
             return (to, amountOrTokenId);
         } else {
-            revert(
-                "MultisigWallet: unsupported transaction type for data decoding"
-            );
+            revert("MultisigWallet: unsupported transaction type for data decoding");
         }
     }
 
@@ -785,13 +657,11 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      * @param data Additional data with no specified format.
      * @return bytes4 Returns `IERC721Receiver.onERC721Received.selector` to confirm the token transfer.
      */
-
-    function onERC721Received(
-        address operator,
-        address from,
-        uint256 tokenId,
-        bytes calldata data
-    ) external override returns (bytes4) {
+    function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata data)
+        external
+        override
+        returns (bytes4)
+    {
         emit ERC721Received(operator, from, tokenId, data);
         return this.onERC721Received.selector;
     }
