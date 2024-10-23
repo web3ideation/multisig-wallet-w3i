@@ -134,19 +134,17 @@ send ERC721 transaction: 222734 x 10^(-9) x 10 | x 40 = 0,00222734ETH <-> 0,0089
 confirm transaction: 93255 x 10^(-9)x 10 | x 40 = 0,00093255ETH <-> 0,0037302ETH = 2,25EUR <-> 9,03ETH
 last confirm (execute): 238701 x 10^(-9) x 10 | x 40 = 0,00238701ETH <-> 0,00954804 = 5,78ETH <-> 23,12EUR
 
-➡️ prepare mainnet deploy script with real private key
+prepare mainnet deploy script with real private key ✅
 
-_Mainnet deploy_
+sepolia testeth besorgen ✅
+
+➡️ _Mainnet deploy_ (Niklas Public Key, Stefan Public Key, Gasprice niedirg) -> Public keys ins deploy script und dann einfach nur den befehl ausführen
 
 ---
 
 .
 .
 .
-
-sepolia testeth besorgen
-
-check how much gasfees are when doing the regular stuff
 
 use dotenv for the depoly scripts
 
