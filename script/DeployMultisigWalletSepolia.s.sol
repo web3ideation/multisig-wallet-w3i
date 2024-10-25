@@ -14,8 +14,10 @@ contract DeployMultisigWalletSepolia is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // Specify the multisig owners
-        address[] memory owners = new address[](1);
+        address[] memory owners = new address[](3);
         owners[0] = 0xE8dF60a93b2B328397a8CBf73f0d732aaa11e33D;
+        owners[1] = 0x8a200122f666af83aF2D4f425aC7A35fa5491ca7;
+        owners[2] = 0xEdC9b2CA57635C98064988A3D3Ad24f9Bb9ADc6A;
 
         MultisigWallet multisigWallet = new MultisigWallet(owners);
 

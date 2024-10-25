@@ -146,13 +146,13 @@ sepolia testeth besorgen ✅
 .
 .
 
-use dotenv for the depoly scripts
+use dotenv for the depoly scripts ✅
 
-dont use dotenv at all and do it like patrick cyfrin explains it
+dont use dotenv at all and do it like patrick cyfrin explains it ✅
 
-CI workflow run CI: All jobs have failed
+CI workflow run CI: All jobs have failed -> update the expected logs in the foundry test script
 
-how about ERC777 and other token standards? How about implementing safeTransfer for ERC20 tokens?
+how about ERC777 and other token standards? How about implementing safeTransfer for ERC20 tokens? -> using a delegate call to a **fallback manager**. but at this point i should aswell use the **diamond setup** to have the whole contract upgradable I guess...
 
 Cyfrin nach audit fragen (wie sind die kosten?) und ob die auch Certora Prover oder andere Formal Verification tools nutzen - https://www.cyfrin.io/blog/solidity-smart-contract-formal-verification-symbolic-execution
 
