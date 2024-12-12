@@ -124,7 +124,7 @@ prepare mainnet deploy script with real private key ✅
 sepolia testeth besorgen ✅
 
 ➡️ _Mainnet deploy_ (Niklas Public Key, Stefan Public Key, Gasprice niedirg) -> Public keys ins deploy script und dann einfach nur den befehl ausführen
-
+➡️ activate optimizer in the foundry.toml optimizer = true, optimizer_runs = 200 (10 for cheaper deployment, 5000 for cheaper executions)
 ---
 
 .
