@@ -82,6 +82,17 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
     );
 
     /**
+     * @notice Emitted for each transfer within a batch transaction.
+     * @param recipient The recipient address of the transfer.
+     * @param tokenAddress The token contract address (if applicable, `address(0)` for Ether).
+     * @param value The amount of Ether or ERC20 tokens transferred.
+     * @param tokenId The ID of the ERC721 token transferred (if applicable).
+     */
+    event BatchTransferExecuted(
+        address indexed recipient, address indexed tokenAddress, uint256 value, uint256 indexed tokenId
+    );
+
+    /**
      * @notice Emitted when a new owner is added to the multisig wallet.
      * @param owner The address of the owner that was added.
      */
@@ -130,6 +141,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         ERC721,
         AddOwner,
         RemoveOwner,
+        BatchTransaction,
         Other
     }
 
@@ -152,6 +164,14 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         address to;
         uint256 value;
         bytes data;
+    }
+
+    /// @notice Struct to represent individual bulk transfer details
+    struct BatchTransaction {
+        address to; // Recipient address
+        address tokenAddress; // Token contract address (address(0) for ETH)
+        uint256 value; // Ether amount (if ETH) or token amount
+        uint256 tokenId; // Token ID (for ERC721)
     }
 
     /// @notice Array of multisig wallet owners.
@@ -322,6 +342,31 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         require(
             hasEnoughConfirmations(numConfirmations, txType), "MultisigWallet: insufficient confirmations to execute"
         );
+
+        if (txType == TransactionType.BatchTransaction) {
+            BatchTransaction[] memory transfers = abi.decode(transaction.data, (BatchTransaction[]));
+            uint256 len = transfers.length;
+
+            for (uint256 i = 0; i < len; i++) {
+                BatchTransaction memory transfer = transfers[i];
+                if (transfer.tokenAddress == address(0)) {
+                    // Ether transfer
+                    (bool success,) = transfer.to.call{value: transfer.value}("");
+                    require(success, "BatchTransfer: Ether transfer failed");
+                } else if (transfer.tokenId == 0) {
+                    // ERC20 transfer
+                    require(
+                        IERC20(transfer.tokenAddress).transfer(transfer.to, transfer.value),
+                        "BatchTransfer: ERC20 transfer failed"
+                    );
+                } else {
+                    // ERC721 transfer
+                    IERC721(transfer.tokenAddress).safeTransferFrom(address(this), transfer.to, transfer.tokenId);
+                }
+                // Emit BatchTransferExecuted event
+                emit BatchTransferExecuted(transfer.to, transfer.tokenAddress, transfer.value, transfer.tokenId);
+            }
+        }
 
         address to = transaction.to;
         uint256 value = transaction.value;
@@ -524,6 +569,16 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         // Encode the transferFrom data
         bytes memory data = abi.encodeWithSignature("safeTransferFrom(address,address,uint256)", _from, _to, _tokenId);
         submitTransaction(TransactionType.ERC721, _token, 0, data);
+    }
+
+    /**
+     * @notice Submits a BulkTransfer transaction
+     * @dev Encodes an array of BulkTransfer structs into the data payload
+     * @param transfers Array of BulkTransfer structs representing the transfers
+     */
+    function batchTransfer(BatchTransaction[] memory transfers) public onlyMultisigOwner {
+        bytes memory data = abi.encode(transfers);
+        submitTransaction(TransactionType.BatchTransaction, address(this), 0, data);
     }
 
     /**
