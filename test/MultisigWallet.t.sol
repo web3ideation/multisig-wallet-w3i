@@ -7,8 +7,74 @@ import "../src/SimpleERC20.sol";
 import "../src/SimpleERC721.sol";
 
 /**
+ * @notice A simple contract that increments a counter (used to test TransactionType.Other).
+ */
+contract SimpleCounter {
+    uint256 public count;
+
+    function increment() public {
+        count += 1;
+    }
+}
+
+/**
+ * @notice Malicious contract that attempts to reenter `confirmTransaction` in its fallback.
+ *         Used for reentrancy tests in batch or single transfers.
+ */
+contract MaliciousContract {
+    MultisigWallet public target;
+
+    constructor(address payable _target) {
+        target = MultisigWallet(_target);
+    }
+
+    receive() external payable {
+        // Attempt reentrancy by calling confirmTransaction(0)
+        target.confirmTransaction(0);
+    }
+}
+
+/**
+ * @notice Another malicious contract that attempts to reenter `executeTransaction` in its fallback.
+ */
+contract MaliciousReentrantExecutor {
+    MultisigWallet public target;
+
+    constructor(MultisigWallet _target) {
+        target = _target;
+    }
+
+    receive() external payable {
+        target.executeTransaction(0);
+    }
+}
+
+/**
+ * @notice A malicious ERC20 that attempts reentrancy in its `transfer()`.
+ *         Used by testMaliciousTokenCannotDrainViaBatch().
+ */
+contract MaliciousToken is SimpleERC20 {
+    MultisigWallet private wallet;
+
+    constructor(uint256 initialSupply, address payable _wallet)
+        SimpleERC20(0) // Pass 0 initial supply; we'll mint as needed
+    {
+        wallet = MultisigWallet(_wallet);
+        _mint(address(_wallet), initialSupply); // Mint directly here
+    }
+
+    function transfer(address to, uint256 amount) public override returns (bool) {
+        // Attempt reentrancy in the multisig
+        wallet.confirmTransaction(999999999); // bogus index
+        return super.transfer(to, amount);
+    }
+}
+
+/**
  * @title MultisigWalletTest
- * @notice This contract tests the functionalities of the MultisigWallet contract, including owner management, ETH and token transfers, and transaction confirmation/execution processes.
+ * @notice This contract tests the functionalities of the MultisigWallet contract,
+ *         including owner management, ETH and token transfers, confirmations,
+ *         and the batchTransfer feature plus malicious attempts.
  * @dev Uses Foundry's Test contract for unit testing. The contract covers various scenarios, including dynamic confirmation requirements, edge cases for owner management, and token interactions.
  */
 contract MultisigWalletTest is Test {
@@ -21,7 +87,7 @@ contract MultisigWalletTest is Test {
     /// @notice The ERC721 token instance for testing ERC721 transfers.
     SimpleERC721 public erc721Token;
 
-    /// @notice Various address arrays used for different test scenarios (e.g., owners, invalid owners).
+    /// @notice Various address arrays used for different test scenarios.
     address[] public owners;
     address[] public twoOwners;
     address[] public singleOwner;
@@ -43,9 +109,9 @@ contract MultisigWalletTest is Test {
     address public nonOwner = address(1000);
 
     /**
-     * @notice Event emitted during deposit tests.
+     * @notice Events from the MultisigWallet contract, repeated here for checking via vm.expectEmit.
      */
-    event Deposit(address indexed sender, uint256 indexed amount, uint256 indexed balance);
+    event Deposit(address indexed sender, uint256 indexed amountOrTokenId, uint256 indexed balance);
 
     /**
      * @notice Event emitted during transaction submission.
@@ -86,6 +152,13 @@ contract MultisigWalletTest is Test {
     );
 
     /**
+     * @notice Event emitted when a Batch Transfer has been executed.
+     */
+    event BatchTransferExecuted(
+        address indexed recipient, address indexed tokenAddress, uint256 value, uint256 indexed tokenId
+    );
+
+    /**
      * @notice Event emitted when an owner is added.
      */
     event OwnerAdded(address indexed owner);
@@ -101,29 +174,45 @@ contract MultisigWalletTest is Test {
     event PendingTransactionsDeactivated();
 
     /**
+     * @notice Emitted when an owner deactivates their own pending transaction.
+     */
+    event DeactivatedMyPendingTransaction(uint256 indexed txIndex, address indexed owner);
+
+    /**
      * @notice Event emitted when the contract receives an ERC721 token.
      */
     event ERC721Received(address indexed operator, address indexed from, uint256 indexed tokenId, bytes data);
 
     /**
-     * @notice Sets up the environment for each test.
-     * @dev Initializes owners, multisig wallet, and token contracts.
+     * @notice Sets up the environment for each test: owners, multisig wallet, token contracts, and initial funding.
+     * @dev Mints enough ERC721 token IDs for the bigger batchTransfer tests.
      */
     function setUp() public {
         owners = [owner1, owner2, owner3, owner4, owner5];
         twoOwners = [owner1, owner2];
         threeOwners = [owner1, owner2, owner3];
         singleOwner = [owner1];
+        noOwners = new address[](0);
         invalidOwners = [address(0)];
         duplicateOwners = [address(1), address(1)];
+        // Deploy the multisig
         multisigWallet = new MultisigWallet(owners);
+        // Deploy tokens
         erc20Token = new SimpleERC20(ERC20_INITIAL_SUPPLY);
         erc721Token = new SimpleERC721();
 
+        // Fund the multisig with 10 ETH
         vm.deal(address(multisigWallet), INITIAL_BALANCE);
+        // Transfer 1000 tokens to the multisig so we can test ERC20 transfers
         erc20Token.transfer(address(multisigWallet), 1000 * 10 ** 18);
+        // Mint some ERC721 tokens directly to the multisig
         erc721Token.mint(address(multisigWallet), 1);
         erc721Token.mint(address(multisigWallet), 2);
+
+        // For bigger batch tests, mint token IDs 3..22 as well:
+        for (uint256 i = 3; i <= 22; i++) {
+            erc721Token.mint(address(multisigWallet), i);
+        }
     }
 
     /**
@@ -1655,20 +1744,18 @@ contract MultisigWalletTest is Test {
      */
     function testOnERC721Received() public {
         // Arrange
-        address from = owner2; // The current owner of the token
-        uint256 tokenId = 3; // Use a unique tokenId
+        uint256 tokenId = 3; // Unique tokenId
         bytes memory data = "some data";
 
-        // Mint a token to 'from' (owner2)
-        erc721Token.mint(from, tokenId);
+        // Mint the token to this contract (the test contract, which is the owner of erc721Token)
+        erc721Token.mint(address(this), tokenId);
 
-        // Expect the ERC721Received event to be emitted when the token is received
+        // Expect the ERC721Received event when the token is received by the MultisigWallet
         vm.expectEmit(true, true, true, true);
-        emit ERC721Received(from, from, tokenId, data);
+        emit ERC721Received(address(this), address(this), tokenId, data);
 
-        // Act: Transfer the token from 'from' to the multisig wallet
-        vm.prank(from);
-        erc721Token.safeTransferFrom(from, address(multisigWallet), tokenId, data);
+        // Act: Transfer the token from this contract to the multisig wallet
+        erc721Token.safeTransferFrom(address(this), address(multisigWallet), tokenId, data);
 
         // Assert: Verify that the multisig wallet now owns the token
         assertEq(erc721Token.ownerOf(tokenId), address(multisigWallet), "Token ownership not transferred correctly");
@@ -1872,41 +1959,555 @@ contract MultisigWalletTest is Test {
         // Check that the transaction was executed
         assertEq(receivedBalance, 1 ether);
     }
-}
 
-// Malicious contract that attempts a reentrancy attack
-contract MaliciousContract {
-    MultisigWallet public target;
+    /**
+     * @notice Tests that calling `deactivateMyPendingTransaction` emits the `DeactivatedMyPendingTransaction` event.
+     * @dev Verifies that only the owner who submitted can deactivate, and checks the event/log output.
+     */
+    function testDeactivateMyPendingTransactionEvent() public {
+        // 1. Submit a new transaction from owner1
+        vm.prank(owner1);
+        multisigWallet.sendETH(address(0x123), 1 ether);
 
-    constructor(address payable _target) {
-        target = MultisigWallet(_target);
+        // 2. Confirm that the transaction is indeed active
+        (, bool isActive,,,,,) = multisigWallet.transactions(0);
+        assertTrue(isActive, "Transaction should initially be active");
+
+        // 3. Attempt to deactivate from a different owner => revert
+        vm.prank(owner2);
+        vm.expectRevert("MultisigWallet: only the owner can clear their submitted transaction");
+        multisigWallet.deactivateMyPendingTransaction(0);
+
+        // 4. Expect the `DeactivatedMyPendingTransaction(txIndex, owner)` event from the correct call
+        vm.expectEmit(true, true, false, true);
+        emit DeactivatedMyPendingTransaction(0, owner1);
+
+        // 5. Deactivate from the actual submitter, owner1
+        vm.prank(owner1);
+        multisigWallet.deactivateMyPendingTransaction(0);
+
+        // 6. Verify the transaction is now inactive
+        (, isActive,,,,,) = multisigWallet.transactions(0);
+        assertFalse(isActive, "Transaction should now be inactive");
     }
 
-    receive() external payable {
-        // Attempt to re-enter the executeTransaction function
-        target.confirmTransaction(0);
+    // ----------------------------------------------------------------------------
+    // -------- New BatchTransfer Tests (with full vm.expectEmit for each sub-transfer) -------
+    // ----------------------------------------------------------------------------
+
+    /**
+     * @notice Tests a simple batch transfer containing a single ETH transfer.
+     */
+    function testBatchTransferSingleETH() public {
+        // 1. Single sub-transfer
+        MultisigWallet.BatchTransaction[] memory transfers = new MultisigWallet.BatchTransaction[](1);
+        transfers[0] =
+            MultisigWallet.BatchTransaction({to: address(0xABC), tokenAddress: address(0), value: 1 ether, tokenId: 0});
+
+        // 2. Encode
+        bytes memory data = abi.encode(transfers);
+
+        // 3. Expect SubmitTransaction
+        vm.expectEmit(true, true, true, true);
+        emit SubmitTransaction(
+            MultisigWallet.TransactionType.BatchTransaction, 0, address(multisigWallet), 0, address(0), 0, owner1, data
+        );
+
+        // 4. Submit
+        vm.prank(owner1);
+        multisigWallet.batchTransfer(transfers);
+
+        // 5. Confirm from enough owners minus 1
+        for (uint256 i = 1; i < owners.length / 2; i++) {
+            vm.expectEmit(true, true, false, true);
+            emit ConfirmTransaction(owners[i], 0);
+            vm.prank(owners[i]);
+            multisigWallet.confirmTransaction(0);
+        }
+
+        // 6. The final confirm expects:
+        //    a) ConfirmTransaction
+        //    b) BatchTransferExecuted (since there's 1 sub-transfer)
+        //    c) ExecuteTransaction
+        vm.expectEmit(true, true, false, true);
+        emit ConfirmTransaction(owners[owners.length / 2], 0);
+
+        vm.expectEmit(true, true, true, true);
+        emit BatchTransferExecuted(address(0xABC), address(0), 1 ether, 0);
+
+        vm.expectEmit(true, true, true, true);
+        emit ExecuteTransaction(
+            MultisigWallet.TransactionType.BatchTransaction,
+            0,
+            address(multisigWallet),
+            0,
+            address(0),
+            0,
+            owners[owners.length / 2],
+            data
+        );
+
+        // Final confirm
+        vm.prank(owners[owners.length / 2]);
+        multisigWallet.confirmTransaction(0);
+
+        // 7. Check
+        assertEq(address(0xABC).balance, 1 ether, "Recipient did not receive 1 ETH");
+        assertEq(address(multisigWallet).balance, INITIAL_BALANCE - 1 ether, "Multisig not reduced");
     }
-}
 
-// Malicious contract attempting to re-enter executeTransaction
-contract MaliciousReentrantExecutor {
-    MultisigWallet public target;
+    /**
+     * @notice Tests a batch transfer containing multiple items: ETH, ERC20, and ERC721.
+     *         (3 sub-transfers)
+     */
+    function testBatchTransferMultipleItems() public {
+        // We'll create a 3-item batch:
+        //   1) 0.5 ETH -> address(0x111)
+        //   2) 100 ERC20 tokens -> address(0x222)
+        //   3) ERC721 tokenId=1 -> address(0x333)
+        MultisigWallet.BatchTransaction[] memory transfers = new MultisigWallet.BatchTransaction[](3);
 
-    constructor(MultisigWallet _target) {
-        target = _target;
+        transfers[0] = MultisigWallet.BatchTransaction({
+            to: address(0x111),
+            tokenAddress: address(0),
+            value: 0.5 ether,
+            tokenId: 0
+        });
+        transfers[1] = MultisigWallet.BatchTransaction({
+            to: address(0x222),
+            tokenAddress: address(erc20Token),
+            value: 100 * 10 ** 18,
+            tokenId: 0
+        });
+        transfers[2] = MultisigWallet.BatchTransaction({
+            to: address(0x333),
+            tokenAddress: address(erc721Token),
+            value: 0,
+            tokenId: 1
+        });
+
+        bytes memory data = abi.encode(transfers);
+
+        // Expect SubmitTransaction
+        vm.expectEmit(true, true, true, true);
+        emit SubmitTransaction(
+            MultisigWallet.TransactionType.BatchTransaction, 0, address(multisigWallet), 0, address(0), 0, owner1, data
+        );
+
+        vm.prank(owner1);
+        multisigWallet.batchTransfer(transfers);
+
+        // Partial confirms
+        for (uint256 i = 1; i < owners.length / 2; i++) {
+            vm.expectEmit(true, true, false, true);
+            emit ConfirmTransaction(owners[i], 0);
+            vm.prank(owners[i]);
+            multisigWallet.confirmTransaction(0);
+        }
+
+        // Final confirm => Expect:
+        //   a) ConfirmTransaction
+        //   b) BatchTransferExecuted( #1 => 0.5 ETH -> 0x111 )
+        //   c) BatchTransferExecuted( #2 => 100 tokens -> 0x222 )
+        //   d) BatchTransferExecuted( #3 => ERC721 tokenId=1 -> 0x333 )
+        //   e) ExecuteTransaction
+        vm.expectEmit(true, true, false, true);
+        emit ConfirmTransaction(owners[owners.length / 2], 0);
+
+        vm.expectEmit(true, true, true, true);
+        emit BatchTransferExecuted(address(0x111), address(0), 0.5 ether, 0);
+
+        vm.expectEmit(true, true, true, true);
+        emit BatchTransferExecuted(address(0x222), address(erc20Token), 100 * 10 ** 18, 0);
+
+        vm.expectEmit(true, true, true, true);
+        emit BatchTransferExecuted(address(0x333), address(erc721Token), 0, 1);
+
+        vm.expectEmit(true, true, true, true);
+        emit ExecuteTransaction(
+            MultisigWallet.TransactionType.BatchTransaction,
+            0,
+            address(multisigWallet),
+            0,
+            address(0),
+            0,
+            owners[owners.length / 2],
+            data
+        );
+
+        vm.prank(owners[owners.length / 2]);
+        multisigWallet.confirmTransaction(0);
+
+        // Check final
+        assertEq(address(0x111).balance, 0.5 ether, "ETH not transferred");
+        assertEq(address(multisigWallet).balance, INITIAL_BALANCE - 0.5 ether, "Multisig not reduced");
+        assertEq(erc20Token.balanceOf(address(0x222)), 100 * 10 ** 18, "ERC20 not transferred");
+        assertEq(erc721Token.ownerOf(1), address(0x333), "ERC721 not transferred");
     }
 
-    receive() external payable {
-        // Attempt to re-enter executeTransaction
-        target.executeTransaction(0);
+    /**
+     * @notice Tests that an empty batch array effectively does no sub-transfers (0 sub-transfers).
+     */
+    function testBatchTransferEmptyArray() public {
+        // 0 sub-transfers
+        MultisigWallet.BatchTransaction[] memory transfers = new MultisigWallet.BatchTransaction[](0);
+        bytes memory data = abi.encode(transfers);
+
+        // We can expect a SubmitTransaction event still:
+        vm.expectEmit(true, true, true, true);
+        emit SubmitTransaction(
+            MultisigWallet.TransactionType.BatchTransaction, 0, address(multisigWallet), 0, address(0), 0, owner1, data
+        );
+
+        vm.prank(owner1);
+        multisigWallet.batchTransfer(transfers);
+
+        // Partial confirms
+        for (uint256 i = 1; i < owners.length / 2; i++) {
+            vm.prank(owners[i]);
+            multisigWallet.confirmTransaction(0);
+        }
+
+        // Final confirm => Expect:
+        //   a) ConfirmTransaction
+        //   b) (No BatchTransferExecuted, because 0 sub-transfers)
+        //   c) ExecuteTransaction
+        vm.expectEmit(true, true, false, true);
+        emit ConfirmTransaction(owners[owners.length / 2], 0);
+
+        vm.expectEmit(true, true, true, true);
+        emit ExecuteTransaction(
+            MultisigWallet.TransactionType.BatchTransaction,
+            0,
+            address(multisigWallet),
+            0,
+            address(0),
+            0,
+            owners[owners.length / 2],
+            data
+        );
+
+        vm.prank(owners[owners.length / 2]);
+        multisigWallet.confirmTransaction(0);
+
+        // Check that no ETH left the multisig
+        assertEq(address(multisigWallet).balance, INITIAL_BALANCE, "Unexpected ETH movement");
     }
-}
 
-// Simple counter contract for testing "Other" transaction type
-contract SimpleCounter {
-    uint256 public count;
+    /**
+     * @notice Tests a malicious reentrancy attempt within a batch transfer (sending ETH to a contract that calls back).
+     *         This ultimately reverts, so NO final events are emitted. We only expect revert.
+     */
+    function testBatchTransferMaliciousReentrancy() public {
+        MaliciousContract attacker = new MaliciousContract(payable(address(multisigWallet)));
+        vm.deal(address(multisigWallet), 5 ether); // Enough ETH
 
-    function increment() public {
-        count += 1;
+        MultisigWallet.BatchTransaction[] memory transfers = new MultisigWallet.BatchTransaction[](1);
+        transfers[0] = MultisigWallet.BatchTransaction({
+            to: address(attacker),
+            tokenAddress: address(0),
+            value: 1 ether,
+            tokenId: 0
+        });
+
+        // We won't do final expectEmit of BatchTransferExecuted, because it should revert.
+        // Just do normal submission
+
+        vm.prank(owner1);
+        multisigWallet.batchTransfer(transfers);
+
+        // Partial confirms
+        for (uint256 i = 1; i < owners.length / 2; i++) {
+            vm.prank(owners[i]);
+            multisigWallet.confirmTransaction(0);
+        }
+
+        // The final confirm triggers revert => no final events
+        vm.expectRevert("BatchTransfer: Ether transfer failed");
+        vm.prank(owners[owners.length / 2]);
+        multisigWallet.confirmTransaction(0);
+
+        // Check no funds moved
+        assertEq(address(attacker).balance, 0, "Attacker must not get ETH");
+        assertEq(address(multisigWallet).balance, 5 ether, "Balance changed unexpectedly");
+    }
+
+    /**
+     * @notice Tests partial confirmation ensuring the batch won't execute with insufficient signatures.
+     *         No final events because it never executes.
+     */
+    function testBatchTransferInsufficientConfirmations() public {
+        // Single sub-transfer
+        MultisigWallet.BatchTransaction[] memory transfers = new MultisigWallet.BatchTransaction[](1);
+        transfers[0] =
+            MultisigWallet.BatchTransaction({to: address(0xAAA), tokenAddress: address(0), value: 1 ether, tokenId: 0});
+
+        vm.prank(owner1);
+        multisigWallet.batchTransfer(transfers);
+
+        // Only partial confirm
+        uint256 needed = owners.length / 2;
+        for (uint256 i = 1; i < needed - 1; i++) {
+            vm.prank(owners[i]);
+            multisigWallet.confirmTransaction(0);
+        }
+
+        // Attempt to finalize => revert
+        vm.prank(owners[needed - 1]);
+        vm.expectRevert("MultisigWallet: insufficient confirmations to execute");
+        multisigWallet.executeTransaction(0);
+
+        // No final events, no changes
+        assertEq(address(0xAAA).balance, 0, "Should not receive ETH yet");
+        assertEq(address(multisigWallet).balance, INITIAL_BALANCE, "Multisig wallet changed");
+    }
+
+    /**
+     * @notice Tests a batch that sends multiple transfers (25 sub-transfers) to multiple recipients in one shot.
+     *         We'll do full event checks for each sub-transfer.
+     */
+    function testBatchTransferMultipleRecipientsAndMixedAssets() public {
+        address payable recipientA = payable(address(0x111));
+        address payable recipientB = payable(address(0x222));
+        address recipientC = address(0x333);
+
+        // We do 25 sub-transfers in one batch:
+        //  (1) 1 ETH -> A
+        //  (2) tokenId=1 -> A
+        //  (3) tokenId=2 -> A
+        //  (4) 2 ETH -> B
+        //  (5..24) tokenIds=3..22 -> B (20 NFTs)
+        //  (25) 500 ERC20 tokens -> C
+        MultisigWallet.BatchTransaction[] memory transfers = new MultisigWallet.BatchTransaction[](25);
+
+        // #1: 1 ETH -> A
+        transfers[0] =
+            MultisigWallet.BatchTransaction({to: recipientA, tokenAddress: address(0), value: 1 ether, tokenId: 0});
+
+        // #2,3: tokenId=1 and 2 -> A
+        transfers[1] =
+            MultisigWallet.BatchTransaction({to: recipientA, tokenAddress: address(erc721Token), value: 0, tokenId: 1});
+        transfers[2] =
+            MultisigWallet.BatchTransaction({to: recipientA, tokenAddress: address(erc721Token), value: 0, tokenId: 2});
+
+        // #4: 2 ETH -> B
+        transfers[3] =
+            MultisigWallet.BatchTransaction({to: recipientB, tokenAddress: address(0), value: 2 ether, tokenId: 0});
+
+        // #5..24: tokenIds=3..22 -> B
+        for (uint256 i = 0; i < 20; i++) {
+            transfers[4 + i] = MultisigWallet.BatchTransaction({
+                to: recipientB,
+                tokenAddress: address(erc721Token),
+                value: 0,
+                tokenId: 3 + i
+            });
+        }
+
+        // #25: 500 ERC20 -> C
+        transfers[24] = MultisigWallet.BatchTransaction({
+            to: recipientC,
+            tokenAddress: address(erc20Token),
+            value: 500 * 10 ** 18,
+            tokenId: 0
+        });
+
+        bytes memory data = abi.encode(transfers);
+
+        // Expect SubmitTransaction
+        vm.expectEmit(true, true, true, true);
+        emit SubmitTransaction(
+            MultisigWallet.TransactionType.BatchTransaction, 0, address(multisigWallet), 0, address(0), 0, owner1, data
+        );
+
+        vm.prank(owner1);
+        multisigWallet.batchTransfer(transfers);
+
+        // Confirm partially
+        for (uint256 i = 1; i < owners.length / 2; i++) {
+            vm.prank(owners[i]);
+            multisigWallet.confirmTransaction(0);
+        }
+
+        // Final confirm => expect:
+        //   a) ConfirmTransaction
+        //   b) 25 x BatchTransferExecuted (in order)
+        //   c) ExecuteTransaction
+
+        // (a) Confirm
+        vm.expectEmit(true, true, false, true);
+        emit ConfirmTransaction(owners[owners.length / 2], 0);
+
+        // (b) 25 sub-transfers in exact order:
+        // #1: 1 ETH -> A
+        vm.expectEmit(true, true, true, true);
+        emit BatchTransferExecuted(recipientA, address(0), 1 ether, 0);
+
+        // #2: tokenId=1 -> A
+        vm.expectEmit(true, true, true, true);
+        emit BatchTransferExecuted(recipientA, address(erc721Token), 0, 1);
+
+        // #3: tokenId=2 -> A
+        vm.expectEmit(true, true, true, true);
+        emit BatchTransferExecuted(recipientA, address(erc721Token), 0, 2);
+
+        // #4: 2 ETH -> B
+        vm.expectEmit(true, true, true, true);
+        emit BatchTransferExecuted(recipientB, address(0), 2 ether, 0);
+
+        // #5..24: tokenIds=3..22 -> B
+        for (uint256 i = 3; i <= 22; i++) {
+            vm.expectEmit(true, true, true, true);
+            emit BatchTransferExecuted(recipientB, address(erc721Token), 0, i);
+        }
+
+        // #25: 500 ERC20 -> C
+        vm.expectEmit(true, true, true, true);
+        emit BatchTransferExecuted(recipientC, address(erc20Token), 500 * 10 ** 18, 0);
+
+        // (c) The ExecuteTransaction
+        vm.expectEmit(true, true, true, true);
+        emit ExecuteTransaction(
+            MultisigWallet.TransactionType.BatchTransaction,
+            0,
+            address(multisigWallet),
+            0,
+            address(0),
+            0,
+            owners[owners.length / 2],
+            data
+        );
+
+        // Now do final confirm
+        vm.prank(owners[owners.length / 2]);
+        multisigWallet.confirmTransaction(0);
+
+        // Validate final
+        // A => 1 ETH + tokenIds 1,2
+        assertEq(recipientA.balance, 1 ether, "A should have 1 ETH");
+        assertEq(erc721Token.ownerOf(1), recipientA, "tokenId=1 not in A");
+        assertEq(erc721Token.ownerOf(2), recipientA, "tokenId=2 not in A");
+
+        // B => 2 ETH + tokenIds 3..22
+        assertEq(recipientB.balance, 2 ether, "B should have 2 ETH");
+        for (uint256 j = 3; j <= 22; j++) {
+            assertEq(
+                erc721Token.ownerOf(j), recipientB, string(abi.encodePacked("tokenId=", vm.toString(j), " not in B"))
+            );
+        }
+
+        // C => 500 tokens
+        assertEq(erc20Token.balanceOf(recipientC), 500 * 10 ** 18, "C did not get 500 tokens");
+
+        // Multisig => lost total 3 ETH (1 + 2)
+        assertEq(address(multisigWallet).balance, INITIAL_BALANCE - 3 ether, "Multisig not reduced by 3 ETH total");
+    }
+
+    /**
+     * @notice Tests a batch that references a non-existent NFT tokenId, causing the entire batch to revert.
+     *         Because it reverts, we do not expect the final events.
+     */
+    function testBatchTransferNonExistentERC721Reverts() public {
+        MultisigWallet.BatchTransaction[] memory transfers = new MultisigWallet.BatchTransaction[](2);
+
+        transfers[0] = MultisigWallet.BatchTransaction({
+            to: address(0xAAA),
+            tokenAddress: address(0),
+            value: 0.5 ether,
+            tokenId: 0
+        });
+        transfers[1] = MultisigWallet.BatchTransaction({
+            to: address(0xBBB),
+            tokenAddress: address(erc721Token),
+            value: 0,
+            tokenId: 9999
+        });
+
+        vm.prank(owner1);
+        multisigWallet.batchTransfer(transfers);
+
+        // Confirm up to final
+        for (uint256 i = 1; i < owners.length / 2; i++) {
+            vm.prank(owners[i]);
+            multisigWallet.confirmTransaction(0);
+        }
+
+        // Revert => no final events
+        vm.expectRevert();
+        vm.prank(owners[owners.length / 2]);
+        multisigWallet.confirmTransaction(0);
+
+        // Check partial state not changed
+        assertEq(address(0xAAA).balance, 0, "Should not get partial ETH");
+        assertEq(address(multisigWallet).balance, INITIAL_BALANCE, "Multisig changed unexpectedly");
+    }
+
+    /**
+     * @notice Tests a mismatch scenario: tokenId != 0 but tokenAddress == address(0). It is treated as ETH.
+     *         Single sub-transfer => 1 BatchTransferExecuted event upon success.
+     */
+    function testBatchTransferTokenIdNonZeroButTokenAddressZero() public {
+        // Single sub-transfer that fails now
+        MultisigWallet.BatchTransaction[] memory transfers = new MultisigWallet.BatchTransaction[](1);
+
+        transfers[0] = MultisigWallet.BatchTransaction({
+            to: address(0xAAA),
+            tokenAddress: address(0), // => ETH
+            value: 1 ether,
+            tokenId: 9999 // => triggers revert
+        });
+
+        // Submit batch
+        vm.prank(owner1);
+        multisigWallet.batchTransfer(transfers);
+
+        // Partially confirm up to final
+        for (uint256 i = 1; i < owners.length / 2; i++) {
+            vm.prank(owners[i]);
+            multisigWallet.confirmTransaction(0);
+        }
+
+        // Now, because your contract *reverts* when tokenId != 0 for ETH:
+        vm.expectRevert("BatchTransfer: ETH transfer with TokenId doesn't make sense");
+        vm.prank(owners[owners.length / 2]);
+        multisigWallet.confirmTransaction(0);
+
+        // Done. We *expect* revert, so no final checks needed.
+    }
+
+    /**
+     * @notice Tests that a malicious token cannot drain the multisig by hooking into its transfer call.
+     *         This reverts, so no final batch events are emitted.
+     */
+    function testMaliciousTokenCannotDrainViaBatch() public {
+        MaliciousToken maliciousToken = new MaliciousToken(1000, payable(address(multisigWallet)));
+
+        // Single sub-transfer => tries to move 100 tokens, but reverts
+        address attacker = address(0xDEF);
+        MultisigWallet.BatchTransaction[] memory txs = new MultisigWallet.BatchTransaction[](1);
+        txs[0] = MultisigWallet.BatchTransaction({
+            to: attacker,
+            tokenAddress: address(maliciousToken),
+            value: 100,
+            tokenId: 0
+        });
+
+        vm.prank(owner1);
+        multisigWallet.batchTransfer(txs);
+
+        // Partial confirms
+        for (uint256 i = 1; i < owners.length / 2; i++) {
+            vm.prank(owners[i]);
+            multisigWallet.confirmTransaction(0);
+        }
+
+        // Revert => no final events
+        vm.expectRevert("MultisigWallet: Not a multisig owner");
+        vm.prank(owners[owners.length / 2]);
+        multisigWallet.confirmTransaction(0);
+
+        // No tokens moved
+        assertEq(maliciousToken.balanceOf(address(multisigWallet)), 1000, "Should remain in multisig");
+        assertEq(maliciousToken.balanceOf(attacker), 0, "Attacker not credited");
     }
 }

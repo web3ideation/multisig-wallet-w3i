@@ -133,6 +133,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      * @param ERC721 ERC721 token transfer.
      * @param AddOwner Adding a new owner.
      * @param RemoveOwner Removing an existing owner.
+     * @param BatchTransaction multiple transfers in one ransaction.
      * @param Other Any other transaction type.
      */
     enum TransactionType {
@@ -343,14 +344,22 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
             hasEnoughConfirmations(numConfirmations, txType), "MultisigWallet: insufficient confirmations to execute"
         );
 
+        address to = transaction.to;
+        uint256 value = transaction.value;
+        bytes memory data = transaction.data;
+        address recipient = to;
+        address tokenAddress = address(0);
+        uint256 amountOrTokenId = 0;
+
         if (txType == TransactionType.BatchTransaction) {
-            BatchTransaction[] memory transfers = abi.decode(transaction.data, (BatchTransaction[]));
+            BatchTransaction[] memory transfers = abi.decode(data, (BatchTransaction[]));
             uint256 len = transfers.length;
 
             for (uint256 i = 0; i < len; i++) {
                 BatchTransaction memory transfer = transfers[i];
                 if (transfer.tokenAddress == address(0)) {
                     // Ether transfer
+                    require((transfer.tokenId == 0), "BatchTransfer: ETH transfer with TokenId doesn't make sense");
                     (bool success,) = transfer.to.call{value: transfer.value}("");
                     require(success, "BatchTransfer: Ether transfer failed");
                 } else if (transfer.tokenId == 0) {
@@ -368,33 +377,30 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
             }
         }
 
-        address to = transaction.to;
-        uint256 value = transaction.value;
-        bytes memory data = transaction.data;
-
         if (txType == TransactionType.AddOwner) {
             addOwnerInternal(to, _txIndex);
         } else if (txType == TransactionType.RemoveOwner) {
             removeOwnerInternal(to, _txIndex);
-        } else {
+        }
+
+        if (txType == TransactionType.ETH || txType == TransactionType.Other) {
             require(to != address(this), "MultisigWallet: cannot call internal functions");
             (bool success,) = to.call{value: value}(data);
             require(success, "MultisigWallet: external call failed");
         }
 
-        transaction.isActive = false;
-
-        address recipient = to;
-        address tokenAddress = address(0);
-        uint256 amountOrTokenId = 0;
-
         if (txType == TransactionType.ERC20 || txType == TransactionType.ERC721) {
+            require(to != address(this), "MultisigWallet: cannot call internal functions");
+            (bool success,) = to.call{value: value}(data);
+            require(success, "MultisigWallet: external call failed");
             // Decode the data to extract the token address and amount / tokenId
-            (address _to, uint256 _amountOrTokenId) = decodeTransactionData(txType, transaction.data);
+            (address _to, uint256 _amountOrTokenId) = decodeTransactionData(txType, data);
             recipient = _to;
             tokenAddress = to;
             amountOrTokenId = _amountOrTokenId;
         }
+
+        transaction.isActive = false;
 
         emit ExecuteTransaction(txType, _txIndex, recipient, value, tokenAddress, amountOrTokenId, msg.sender, data);
     }
