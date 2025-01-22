@@ -87,6 +87,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      * @param tokenAddress The token contract address (if applicable, `address(0)` for Ether).
      * @param value The amount of Ether or ERC20 tokens transferred.
      * @param tokenId The ID of the ERC721 token transferred (if applicable).
+     * @notice Test a large BatchTransfer on a local testnet first to check if the gascosts are within the EVM constraint
      */
     event BatchTransferExecuted(
         address indexed recipient, address indexed tokenAddress, uint256 value, uint256 indexed tokenId

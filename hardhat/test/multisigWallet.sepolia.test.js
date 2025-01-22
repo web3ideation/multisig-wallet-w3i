@@ -1531,7 +1531,7 @@ describe("MultisigWallet", function () {
     const _threeOwners = await multisigWallet.getOwners();
     const threeOwnerCount = await multisigWallet.getOwnerCount();
 
-    //Assert that owner1, owner2, owner3 and owner4 are the Owners
+    //Assert that owner1, owner2 and owner3 are the Owners
     expect(_threeOwners).to.eql([
       owner1.address,
       owner2.address,
@@ -1539,6 +1539,328 @@ describe("MultisigWallet", function () {
     ]);
     expect(threeOwnerCount).to.eql(3n);
   });
+
+  it("can batch-transfer multiple assets in one transaction", async function () {
+    // We'll do a single transaction that transfers ETH, ERC20, and ERC721
+    // from the MultisigWallet to various owners in one go.
+
+    // ---------------------------------------------------------------------
+    // 1. Setup references and owners (already declared globally)
+    // ---------------------------------------------------------------------
+    const simpleERC20 = await ethers.getContractAt(
+      "SimpleERC20",
+      SIMPLEERC20_ADDRESS,
+      owner1 // We'll mint from owner1 or use owner1 to move tokens
+    );
+
+    const simpleERC721 = await ethers.getContractAt(
+      "SimpleERC721",
+      SIMPLEERC721_ADDRESS,
+      owner1
+    );
+
+    // We'll deposit 0.05 ETH, deposit 50 ERC20 into the wallet,
+    // and transfer an NFT into it. Then we do the batch transfer.
+
+    // ---------------------------------------------------------------------
+    // 2. Deposit 0.05 ETH from owner1 into MultisigWallet
+    // ---------------------------------------------------------------------
+
+    // 2A. Record initial balances
+    const initialOwner1EthBalance = await provider.getBalance(owner1.address);
+    const initialWalletEthBalance = await provider.getBalance(
+      multisigWallet.target
+    );
+
+    // 2B. Perform the deposit from owner1
+    const depositEthAmount = ethers.parseEther("0.05");
+    const depositTx = await owner1.sendTransaction({
+      to: multisigWallet.target,
+      value: depositEthAmount,
+    });
+    const depositReceipt = await depositTx.wait();
+    const gasUsedDeposit = depositReceipt.gasUsed * depositReceipt.gasPrice;
+
+    // 2C. Check final wallet ETH balance & events
+    const walletBalanceAfterDeposit = await provider.getBalance(
+      multisigWallet.target
+    );
+    expect(walletBalanceAfterDeposit).to.equal(
+      initialWalletEthBalance + depositEthAmount
+    );
+
+    const depositBlock = depositReceipt.blockNumber;
+    const depositEvents = await multisigWallet.queryFilter(
+      "Deposit",
+      depositBlock,
+      depositBlock
+    );
+    expect(depositEvents.length).to.equal(1);
+    const depositEvent = depositEvents[0];
+    expect(depositEvent.args.sender).to.equal(owner1.address);
+    expect(depositEvent.args.amountOrTokenId).to.equal(depositEthAmount);
+    expect(depositEvent.args.balance).to.equal(walletBalanceAfterDeposit);
+
+    // 2D. Check final balance of owner1 (within a small margin for gas)
+    const finalOwner1EthBalance = await provider.getBalance(owner1.address);
+    const expectedOwner1BalanceAfterDeposit =
+      initialOwner1EthBalance - depositEthAmount - gasUsedDeposit;
+    const diffOwner1Balance =
+      finalOwner1EthBalance - expectedOwner1BalanceAfterDeposit;
+    const absDiffOwner1Balance =
+      diffOwner1Balance < 0n ? -diffOwner1Balance : diffOwner1Balance;
+    expect(absDiffOwner1Balance <= GAS_MARGIN).to.be.true;
+
+    // ---------------------------------------------------------------------
+    // 3. Transfer 50 ERC20 from owner1 to MultisigWallet
+    // ---------------------------------------------------------------------
+    const initialWalletERC20Balance = await simpleERC20.balanceOf(
+      multisigWallet.target
+    );
+    const erc20TransferAmount = ethers.parseEther("50");
+
+    // 3A. Mint or ensure owner1 has enough tokens, then transfer
+    // (You already minted enough in earlier tests, but let's do it again if needed.)
+    // We'll do a direct transfer: owner1 --> multisigWallet
+    const transferERC20Tx = await simpleERC20.transfer(
+      multisigWallet.target,
+      erc20TransferAmount
+    );
+    await transferERC20Tx.wait();
+
+    const finalWalletERC20Balance = await simpleERC20.balanceOf(
+      multisigWallet.target
+    );
+    expect(finalWalletERC20Balance).to.equal(
+      initialWalletERC20Balance + erc20TransferAmount
+    );
+
+    // ---------------------------------------------------------------------
+    // 4. Mint and transfer an ERC721 token to the MultisigWallet
+    // ---------------------------------------------------------------------
+    const nftTokenId = 777; // Must be fresh each time if re-running on the same contract
+    const mintTx = await simpleERC721.mint(owner1.address, nftTokenId);
+    await mintTx.wait();
+
+    // Check that owner1 is the NFT owner
+    let nftOwner = await simpleERC721.ownerOf(nftTokenId);
+    expect(nftOwner).to.equal(owner1.address);
+
+    // Transfer NFT to MultisigWallet
+    const transferERC721Tx = await simpleERC721.transferFrom(
+      owner1.address,
+      multisigWallet.target,
+      nftTokenId
+    );
+    await transferERC721Tx.wait();
+
+    // Check that MultisigWallet is now the owner
+    nftOwner = await simpleERC721.ownerOf(nftTokenId);
+    expect(nftOwner).to.equal(multisigWallet.target);
+
+    // ---------------------------------------------------------------------
+    // 5. Prepare the batchTransfer
+    // ---------------------------------------------------------------------
+    // We'll do 5 sub-transfers in one batch:
+    //   1)  0.01 ETH -> owner2
+    //   2)  20 ERC20 -> owner3
+    //   3)  NFT with tokenId=777 -> owner2
+    //   4)  10 ERC20 -> owner2
+    //   5)  0.005 ETH -> owner3
+    // We'll measure initial balances for owners2/3, then confirm final balances.
+
+    // 5A. Record owners2/3 initial ETH balances
+    const initialOwner2EthBalance = await provider.getBalance(owner2.address);
+    const initialOwner3EthBalance = await provider.getBalance(owner3.address);
+
+    // 5B. Record owners2/3 initial ERC20 balances
+    const initialOwner2ERC20Balance = await simpleERC20.balanceOf(
+      owner2.address
+    );
+    const initialOwner3ERC20Balance = await simpleERC20.balanceOf(
+      owner3.address
+    );
+
+    // 5C. The proposed batch transfers
+    const batchTransfers = [
+      {
+        to: owner2.address,
+        tokenAddress: ethers.ZeroAddress,
+        value: ethers.parseEther("0.01"),
+        tokenId: 0,
+      },
+      {
+        to: owner3.address,
+        tokenAddress: SIMPLEERC20_ADDRESS,
+        value: ethers.parseEther("20"),
+        tokenId: 0,
+      },
+      {
+        to: owner2.address,
+        tokenAddress: SIMPLEERC721_ADDRESS,
+        value: 0,
+        tokenId: nftTokenId,
+      },
+      {
+        to: owner2.address,
+        tokenAddress: SIMPLEERC20_ADDRESS,
+        value: ethers.parseEther("10"),
+        tokenId: 0,
+      },
+      {
+        to: owner3.address,
+        tokenAddress: ethers.ZeroAddress,
+        value: ethers.parseEther("0.005"),
+        tokenId: 0,
+      },
+    ];
+
+    // ---------------------------------------------------------------------
+    // 6. Submit the batchTransfer as owner2. This auto-confirms for owner2.
+    // ---------------------------------------------------------------------
+    multisigWallet = multisigWallet.connect(owner2);
+
+    const submitTx2 = await multisigWallet.batchTransfer(batchTransfers);
+    const submitReceipt2 = await submitTx2.wait();
+
+    const submitBlock2 = submitReceipt2.blockNumber;
+
+    // Check the SubmitTransaction event
+    const submitEvents2 = await multisigWallet.queryFilter(
+      "SubmitTransaction",
+      submitBlock2,
+      submitBlock2
+    );
+    expect(submitEvents2.length).to.equal(1);
+    const submitEvent2 = submitEvents2[0];
+    expect(submitEvent2.args._transactionType).to.equal(5n); // enum: BatchTransaction
+    const batchTxIndex = submitEvent2.args.txIndex;
+
+    // Check the auto-confirm from owner2
+    const confirmEvents2 = await multisigWallet.queryFilter(
+      "ConfirmTransaction",
+      submitBlock2,
+      submitBlock2
+    );
+    expect(confirmEvents2.length).to.equal(1);
+    expect(confirmEvents2[0].args.owner).to.equal(owner2.address);
+    expect(confirmEvents2[0].args.txIndex).to.equal(batchTxIndex);
+
+    // ---------------------------------------------------------------------
+    // 7. Confirm from a second owner to surpass 50% of 3 owners => triggers execution.
+    //    We'll do it from owner1 (the richest) to pay the final gas.
+    // ---------------------------------------------------------------------
+    multisigWallet = multisigWallet.connect(owner1);
+
+    // measure owner1's initial ETH balance
+    const initialOwner1BalanceBeforeConfirm = await provider.getBalance(
+      owner1.address
+    );
+
+    const confirmTxOwner1 = await multisigWallet.confirmTransaction(
+      batchTxIndex
+    );
+    const confirmReceiptOwner1 = await confirmTxOwner1.wait();
+    const gasUsedOwner1Confirm =
+      confirmReceiptOwner1.gasUsed * confirmReceiptOwner1.gasPrice;
+
+    const confirmBlockOwner1 = confirmReceiptOwner1.blockNumber;
+
+    // 7A. Check the ConfirmTransaction event from owner1
+    const confirmEventsOwner1 = await multisigWallet.queryFilter(
+      "ConfirmTransaction",
+      confirmBlockOwner1,
+      confirmBlockOwner1
+    );
+    // Possibly confirm + execute are separate logs
+    // But we just need to see exactly 1 confirm log from owner1 here
+    const confirmEventOwner1 = confirmEventsOwner1.find(
+      (ev) => ev.args.owner === owner1.address
+    );
+    expect(confirmEventOwner1).to.exist;
+    expect(confirmEventOwner1.args.txIndex).to.equal(batchTxIndex);
+
+    // 7B. The execution should happen now, so check ExecuteTransaction event
+    const executeEvents2 = await multisigWallet.queryFilter(
+      "ExecuteTransaction",
+      confirmBlockOwner1,
+      confirmBlockOwner1
+    );
+    expect(executeEvents2.length).to.equal(1);
+    expect(executeEvents2[0].args._transactionType).to.equal(5n);
+    expect(executeEvents2[0].args.txIndex).to.equal(batchTxIndex);
+    expect(executeEvents2[0].args.owner).to.equal(owner1.address);
+
+    // 7C. Check the 5 BatchTransferExecuted sub-events
+    const batchTransferExecutedEvents = await multisigWallet.queryFilter(
+      "BatchTransferExecuted",
+      confirmBlockOwner1,
+      confirmBlockOwner1
+    );
+    expect(batchTransferExecutedEvents.length).to.equal(batchTransfers.length);
+
+    // 7D. Check final owner1 balance with margin for gas usage
+    const finalOwner1BalanceAfterConfirm = await provider.getBalance(
+      owner1.address
+    );
+    const expectedOwner1BalanceAfterConfirm =
+      initialOwner1BalanceBeforeConfirm - gasUsedOwner1Confirm;
+    const diffOwner1 =
+      finalOwner1BalanceAfterConfirm - expectedOwner1BalanceAfterConfirm;
+    const absDiffOwner1 = diffOwner1 < 0n ? -diffOwner1 : diffOwner1;
+    expect(absDiffOwner1 <= GAS_MARGIN).to.be.true;
+
+    // ---------------------------------------------------------------------
+    // 8. Verify final recipient balances
+    // ---------------------------------------------------------------------
+
+    // 8A. Final ETH for owner2 and owner3
+    const finalOwner2EthBalance = await provider.getBalance(owner2.address);
+    const finalOwner3EthBalance = await provider.getBalance(owner3.address);
+
+    // We expected +0.01 ETH for owner2
+    const expectedOwner2Gain = ethers.parseEther("0.01");
+    const actualOwner2Gain = finalOwner2EthBalance - initialOwner2EthBalance;
+    // There's no reason for owner2 to spend gas on *this* transaction
+    // because the confirmations came from owner2 (auto-confirm) and from owner1.
+    // So we expect near-exactly 0.01 ETH difference for owner2.
+    expect(actualOwner2Gain).to.equal(expectedOwner2Gain);
+
+    // We expected +0.005 ETH for owner3
+    const expectedOwner3Gain = ethers.parseEther("0.005");
+    const actualOwner3Gain = finalOwner3EthBalance - initialOwner3EthBalance;
+    // Similarly, owner3 did not confirm, so they should have no gas cost here.
+    expect(actualOwner3Gain).to.equal(expectedOwner3Gain);
+
+    // 8B. Final ERC20 for owner2 and owner3
+    const finalOwner2ERC20 = await simpleERC20.balanceOf(owner2.address);
+    const finalOwner3ERC20 = await simpleERC20.balanceOf(owner3.address);
+
+    // Owner2 got +10 tokens
+    const expectedOwner2Erc20Gain = ethers.parseEther("10");
+    expect(finalOwner2ERC20).to.equal(
+      initialOwner2ERC20Balance + expectedOwner2Erc20Gain
+    );
+
+    // Owner3 got +20 tokens
+    const expectedOwner3Erc20Gain = ethers.parseEther("20");
+    expect(finalOwner3ERC20).to.equal(
+      initialOwner3ERC20Balance + expectedOwner3Erc20Gain
+    );
+
+    // 8C. Final NFT ownership
+    const finalNftOwner = await simpleERC721.ownerOf(nftTokenId);
+    expect(finalNftOwner).to.equal(owner2.address);
+
+    // Done! We verified:
+    //  - ETH deposit
+    //  - ERC20 deposit
+    //  - NFT deposit
+    //  - Single batch transfer
+    //  - Confirm logs, execution logs, per-transfer logs
+    //  - Final balances for ETH, ERC20, and NFT
+  });
+
   it("can remove Owner3", async function () {
     // Connect onwer2 to the MultisigWallet contract
     multisigWallet = multisigWallet.connect(owner2);
