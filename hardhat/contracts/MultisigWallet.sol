@@ -138,13 +138,13 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
      * @param Other Any other transaction type.
      */
     enum TransactionType {
-        ETH,
-        ERC20,
-        ERC721,
-        AddOwner,
-        RemoveOwner,
-        BatchTransaction,
-        Other
+        ETH, // 0
+        ERC20, // 1
+        ERC721, // 2
+        AddOwner, // 3
+        RemoveOwner, // 4
+        BatchTransaction, // 5
+        Other // 6
     }
 
     /**

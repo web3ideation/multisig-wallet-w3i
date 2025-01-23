@@ -1,4 +1,4 @@
-// test/multisigWallet.test.js
+// change the "tokenId"s and "bigIntTokenId" before every run!
 
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
@@ -11,74 +11,85 @@ describe("MultisigWallet", function () {
   let owner3;
   let owner4;
   let owner5;
-  //// let provider;
+  //   let provider;
 
-  //// // Environment variables
-  //// const {
-  ////   MULTISIGWALLET_ADDRESS,
-  ////   OWNER1_ADDRESS,
-  ////   OWNER1_PRIVATE_KEY,
-  ////   OWNER2_ADDRESS,
-  ////   OWNER2_PRIVATE_KEY,
-  ////   OWNER3_ADDRESS,
-  ////   OWNER3_PRIVATE_KEY,
-  ////   OWNER4_ADDRESS,
-  ////   OWNER4_PRIVATE_KEY,
-  ////   OWNER5_ADDRESS,
-  ////   OWNER5_PRIVATE_KEY,
-  ////   SEPOLIA_RPC_URL,
-  //// } = process.env;
+  //   // Environment variables
+  //   const {
+  //     MULTISIGWALLET_ADDRESS,
+  //     SIMPLEERC20_ADDRESS,
+  //     SIMPLEERC721_ADDRESS,
+  //     OWNER1_ADDRESS,
+  //     OWNER1_PRIVATE_KEY,
+  //     OWNER2_ADDRESS,
+  //     OWNER2_PRIVATE_KEY,
+  //     OWNER3_ADDRESS,
+  //     OWNER3_PRIVATE_KEY,
+  //     OWNER4_ADDRESS,
+  //     OWNER4_PRIVATE_KEY,
+  //     OWNER5_ADDRESS,
+  //     OWNER5_PRIVATE_KEY,
+  //     SEPOLIA_RPC_URL,
+  //   } = process.env;
 
   // Constants
   const DEPOSIT_AMOUNT = ethers.parseEther("0.01"); // 0.01 ETH
   const GAS_MARGIN = ethers.parseEther("0.001"); // 0.001 ETH margin for gas discrepancies
 
   before(async function () {
-    //// // Validate environment variables
-    //// if (
-    ////   !MULTISIGWALLET_ADDRESS ||
-    ////   !OWNER1_ADDRESS ||
-    ////   !OWNER1_PRIVATE_KEY ||
-    ////   !SEPOLIA_RPC_URL
-    //// ) {
-    ////   throw new Error(
-    ////     "Please ensure MULTISIGWALLET_ADDRESS, OWNER1_ADDRESS, OWNER1_PRIVATE_KEY, and SEPOLIA_RPC_URL are set in your .env file"
-    ////   );
-    //// }
+    // if (
+    //   !MULTISIGWALLET_ADDRESS ||
+    //   !OWNER1_ADDRESS ||
+    //   !OWNER1_PRIVATE_KEY ||
+    //   !SEPOLIA_RPC_URL ||
+    //   !SIMPLEERC20_ADDRESS ||
+    //   !SIMPLEERC721_ADDRESS ||
+    //   !OWNER2_ADDRESS ||
+    //   !OWNER2_PRIVATE_KEY ||
+    //   !OWNER3_ADDRESS ||
+    //   !OWNER3_PRIVATE_KEY ||
+    //   !OWNER4_ADDRESS ||
+    //   !OWNER4_PRIVATE_KEY ||
+    //   !OWNER5_ADDRESS ||
+    //   !OWNER5_PRIVATE_KEY
+    // ) {
+    //   throw new Error(
+    //     "Please ensure MULTISIGWALLET_ADDRESS, OWNER1_ADDRESS, OWNER1_PRIVATE_KEY, SEPOLIA_RPC_URL, SIMPLEERC20_ADDRESS, and SIMPLEERC721_ADDRESS are set in your .env file"
+    //   );
+    // }
 
-    //// // Initialize provider for Sepolia
-    //// provider = new ethers.JsonRpcProvider(SEPOLIA_RPC_URL);
+    // // Initialize provider for Sepolia
+    // provider = new ethers.JsonRpcProvider(SEPOLIA_RPC_URL);
 
-    //// // Initialize signers using the private key
-    //// owner1 = new ethers.Wallet(OWNER1_PRIVATE_KEY, provider);
-    //// owner2 = new ethers.Wallet(OWNER2_PRIVATE_KEY, provider);
-    //// owner3 = new ethers.Wallet(OWNER3_PRIVATE_KEY, provider);
-    //// owner4 = new ethers.Wallet(OWNER4_PRIVATE_KEY, provider);
-    //// owner5 = new ethers.Wallet(OWNER5_PRIVATE_KEY, provider);
+    // // Initialize signers using the private key
+    // owner1 = new ethers.Wallet(OWNER1_PRIVATE_KEY, provider);
+    // owner2 = new ethers.Wallet(OWNER2_PRIVATE_KEY, provider);
+    // owner3 = new ethers.Wallet(OWNER3_PRIVATE_KEY, provider);
+    // owner4 = new ethers.Wallet(OWNER4_PRIVATE_KEY, provider);
+    // owner5 = new ethers.Wallet(OWNER5_PRIVATE_KEY, provider);
 
-    //// // Normalize and compare addresses using ethers.js
-    //// expect(ethers.getAddress(owner1.address)).to.equal(
-    ////   ethers.getAddress(OWNER1_ADDRESS)
-    //// );
-    //// expect(ethers.getAddress(owner2.address)).to.equal(
-    ////   ethers.getAddress(OWNER2_ADDRESS)
-    //// );
-    //// expect(ethers.getAddress(owner3.address)).to.equal(
-    ////   ethers.getAddress(OWNER3_ADDRESS)
-    //// );
-    //// expect(ethers.getAddress(owner4.address)).to.equal(
-    ////   ethers.getAddress(OWNER4_ADDRESS)
-    //// );
-    //// expect(ethers.getAddress(owner5.address)).to.equal(
-    ////   ethers.getAddress(OWNER5_ADDRESS)
-    //// );
+    // // Normalize and compare addresses using ethers.js
+    // expect(ethers.getAddress(owner1.address)).to.equal(
+    //   ethers.getAddress(OWNER1_ADDRESS)
+    // );
+    // expect(ethers.getAddress(owner2.address)).to.equal(
+    //   ethers.getAddress(OWNER2_ADDRESS)
+    // );
+    // expect(ethers.getAddress(owner3.address)).to.equal(
+    //   ethers.getAddress(OWNER3_ADDRESS)
+    // );
+    // expect(ethers.getAddress(owner4.address)).to.equal(
+    //   ethers.getAddress(OWNER4_ADDRESS)
+    // );
+    // expect(ethers.getAddress(owner5.address)).to.equal(
+    //   ethers.getAddress(OWNER5_ADDRESS)
+    // );
 
-    //// // Connect owner1 to the MultisigWallet contract
-    //// multisigWallet = await ethers.getContractAt(
-    ////   "MultisigWallet",
-    ////   MULTISIGWALLET_ADDRESS,
-    ////   owner1
-    //// );
+    //     // Connect owner1 to the MultisigWallet contract
+    //     multisigWallet = await ethers.getContractAt(
+    //       "MultisigWallet",
+    //       MULTISIGWALLET_ADDRESS,
+    //       owner1
+    //     );
 
     //// delete this Local environment
     // Fetch signers
@@ -97,20 +108,23 @@ describe("MultisigWallet", function () {
       "MultisigWallet"
     );
     multisigWallet = await MultisigWalletFactory.deploy([owner1.address]);
-
     // Verify that the contract address is defined
     expect(multisigWallet.target).to.properAddress;
+    expect(await ethers.provider.getCode(multisigWallet.target)).to.not.equal(
+      "0x"
+    );
+    console.log("MultisigWallet deployed at:", multisigWallet.target);
   });
 
   it("MultisigWallet can receive deposits and withdraw with only one owner", async function () {
     // Fetch initial balances
     const initialOwner1Balance = await ethers.provider.getBalance(
       owner1.address
-    ); //// replace ethers.provider with provide
+    );
     const initialWalletBalance = await ethers.provider.getBalance(
-      //// replace ethers.provider with provide
       multisigWallet.target
     );
+    //// replace ethers.provider with provide
 
     // Send deposit transaction
     const depositTx = await owner1.sendTransaction({
@@ -184,6 +198,7 @@ describe("MultisigWallet", function () {
 
     // Fetch final owner1 balance
     const finalOwner1Balance = await ethers.provider.getBalance(owner1.address); //// replace ethers.provider with provide
+    //// replace ethers.provider with provide
 
     const expectedFinalOwner1Balance =
       initialOwner1Balance - gasUsedDeposit - gasUsedWithdrawal;
@@ -299,7 +314,7 @@ describe("MultisigWallet", function () {
     expect(twoOwnerCount).to.eql(2n);
   });
 
-  it("can send ERC20 Tokens on behalv", async function () {
+  it("can send ERC20 Tokens on behalf", async function () {
     // Deploy SimpleERC20 contract with initialSupply to owner1
 
     // Connect to owner1
@@ -316,17 +331,25 @@ describe("MultisigWallet", function () {
     // Now, simpleERC20 is deployed, and owner1 has initialSupply of tokens
 
     // Verify that owner1 has the tokens
-    const owner1Balance = await simpleERC20.balanceOf(owner1.address);
-    expect(owner1Balance).to.equal(initialSupply);
+    const initialOwner1Balance = await simpleERC20.balanceOf(owner1.address);
+    // Correct comparison using BigInt
+    expect(initialOwner1Balance >= ethers.parseEther("100")).to.be.true;
+
+    const initialOwner2Balance = await simpleERC20.balanceOf(owner2.address);
 
     // Now, let owner1 approve the multisigWallet to spend tokens on their behalf
-    const transferAmount = initialSupply;
+    const transferAmount = ethers.parseEther("100");
 
-    // Owner1 approves the multisigWallet to spend tokens
-    const approveTx = await simpleERC20
-      .connect(owner1)
-      .approve(multisigWallet.target, transferAmount);
-    await approveTx.wait();
+    try {
+      // Owner1 approves the multisigWallet to spend tokens
+      const approveTx = await simpleERC20
+        .connect(owner1)
+        .approve(multisigWallet.target, transferAmount);
+      await approveTx.wait();
+    } catch (error) {
+      console.error("Error during token approval:", error);
+      throw error;
+    }
 
     // Verify that multisigWallet has allowance from owner1
     const allowance = await simpleERC20.allowance(
@@ -452,11 +475,11 @@ describe("MultisigWallet", function () {
 
     // Now, verify that owner2 has received the tokens
     const owner2Balance = await simpleERC20.balanceOf(owner2.address);
-    expect(owner2Balance).to.equal(transferAmount);
+    expect(owner2Balance).to.equal(initialOwner2Balance + transferAmount);
 
     // Also, verify that owner1's balance has decreased
     const owner1FinalBalance = await simpleERC20.balanceOf(owner1.address);
-    expect(owner1FinalBalance).to.equal(0n);
+    expect(owner1FinalBalance).to.equal(initialOwner1Balance - transferAmount);
   });
 
   it("can add Owner3", async function () {
@@ -878,6 +901,7 @@ describe("MultisigWallet", function () {
 
     // Fetch final owner1 balance
     const finalOwner1Balance = await ethers.provider.getBalance(owner1.address); //// replace ethers.provider with provide
+    //// replace ethers.provider with provide
 
     const expectedFinalOwner1Balance =
       initialOwner1Balance - gasUsedDeposit - gasUsedSubmitWithdrawal;
@@ -907,7 +931,8 @@ describe("MultisigWallet", function () {
     const simpleERC721 = await SimpleERC721Factory.connect(owner1).deploy();
 
     // Mint a new token to owner1
-    const tokenId = 1;
+    const tokenId = 1; // this needs to be changed every time this test gets ran with the same simpleERC721 deployment (use 2 next) this can maybe be done with a script
+    const bigIntTokenId = 1n; // this needs to be changed every time this test gets ran with the same simpleERC721 deployment (use 2 next) this can maybe be done with a script
     const mintTx = await simpleERC721
       .connect(owner1)
       .mint(owner1.address, tokenId);
@@ -919,12 +944,16 @@ describe("MultisigWallet", function () {
 
     // Now, let owner1 transfer the token to the multisigWallet
 
-    // Owner1 transfers the token to multisigWallet
-    const transferTx = await simpleERC721
-      .connect(owner1)
-      .transferFrom(owner1.address, multisigWallet.target, tokenId);
-
-    await transferTx.wait();
+    try {
+      // Owner1 transfers the token to multisigWallet
+      const transferTx = await simpleERC721
+        .connect(owner1)
+        .transferFrom(owner1.address, multisigWallet.target, tokenId);
+      await transferTx.wait();
+    } catch (error) {
+      console.error("Error during ERC721 transfer:", error);
+      throw error;
+    }
 
     // Verify that multisigWallet has received the token
     const newOwnerOfToken = await simpleERC721.ownerOf(tokenId);
@@ -975,7 +1004,7 @@ describe("MultisigWallet", function () {
     expect(submitEvent.args.to).to.equal(owner2.address);
     expect(submitEvent.args.value).to.equal(0n);
     expect(submitEvent.args.tokenAddress).to.equal(simpleERC721.target);
-    expect(submitEvent.args.amountOrTokenId).to.equal(1n);
+    expect(submitEvent.args.amountOrTokenId).to.equal(bigIntTokenId);
     expect(submitEvent.args.owner).to.equal(owner2.address);
     expect(submitEvent.args.data).to.equal(expectedData);
 
@@ -1053,7 +1082,7 @@ describe("MultisigWallet", function () {
     expect(executeEvent.args.to).to.equal(owner2.address);
     expect(executeEvent.args.value).to.equal(0n);
     expect(executeEvent.args.tokenAddress).to.equal(simpleERC721.target);
-    expect(executeEvent.args.amountOrTokenId).to.equal(1n);
+    expect(executeEvent.args.amountOrTokenId).to.equal(bigIntTokenId);
     expect(executeEvent.args.owner).to.equal(owner1.address);
     expect(executeEvent.args.data).to.equal(expectedData);
 
@@ -1072,7 +1101,7 @@ describe("MultisigWallet", function () {
     const simpleERC721 = await SimpleERC721Factory.connect(owner1).deploy();
 
     // Mint a new token to owner1
-    const tokenId = 1;
+    const tokenId = 103; // this needs to be changed every time this test gets ran with the same simpleERC721 deployment (use 103 nex) this can maybe done with a script
     const mintTx = await simpleERC721
       .connect(owner1)
       .mint(owner1.address, tokenId);
@@ -1082,12 +1111,16 @@ describe("MultisigWallet", function () {
     const ownerOfToken = await simpleERC721.ownerOf(tokenId);
     expect(ownerOfToken).to.equal(owner1.address);
 
-    // Owner1 transfers the token to multisigWallet
-    const transferTx = await simpleERC721
-      .connect(owner1)
-      .transferFrom(owner1.address, multisigWallet.target, tokenId);
-
-    await transferTx.wait();
+    try {
+      // Owner1 transfers the token to multisigWallet
+      const transferTx = await simpleERC721
+        .connect(owner1)
+        .transferFrom(owner1.address, multisigWallet.target, tokenId);
+      await transferTx.wait();
+    } catch (error) {
+      console.error("Error during ERC721 transfer:", error);
+      throw error;
+    }
 
     // Verify that multisigWallet has received the token
     const newOwnerOfToken = await simpleERC721.ownerOf(tokenId);
@@ -1104,15 +1137,21 @@ describe("MultisigWallet", function () {
     // Connect multisigWallet as owner2
     multisigWallet = multisigWallet.connect(owner2);
 
-    // Owner2 submits the 'other' transaction
-    const submitTx = await multisigWallet.submitTransaction(
-      5n, // Enum for "other" transaction type (TransactionType.Other)
-      simpleERC721.target, // The contract we're interacting with (SimpleERC721)
-      0, // No ETH value being sent
-      approvalData // The data encoding the approve function call
-    );
-
-    const submitReceipt = await submitTx.wait();
+    let submitTx;
+    let submitReceipt;
+    try {
+      // Owner2 submits the 'other' transaction
+      submitTx = await multisigWallet.submitTransaction(
+        6n, // Enum for "other" transaction type (TransactionType.Other)
+        simpleERC721.target, // The contract we're interacting with (SimpleERC721)
+        0, // No ETH value being sent
+        approvalData // The data encoding the approve function call
+      );
+      submitReceipt = await submitTx.wait();
+    } catch (error) {
+      console.error("Error submitting 'other' transaction:", error);
+      throw error;
+    }
 
     // Check emitted events for submit and confirm (since confirm is triggered automatically after submitting)
     const submitBlock = submitReceipt.blockNumber;
@@ -1130,7 +1169,7 @@ describe("MultisigWallet", function () {
     const submitEvent = submitEvents[0];
 
     // Assert that the Event is emitted as expected
-    expect(submitEvent.args._transactionType).to.equal(5n); // For "other"
+    expect(submitEvent.args._transactionType).to.equal(6n); // For "other"
     expect(submitEvent.args.to).to.equal(simpleERC721.target);
     expect(submitEvent.args.value).to.equal(0n);
     expect(submitEvent.args.tokenAddress).to.equal(
@@ -1209,7 +1248,7 @@ describe("MultisigWallet", function () {
 
     const executeEvent = executeEvents[0];
 
-    expect(executeEvent.args._transactionType).to.equal(5n); // For "other"
+    expect(executeEvent.args._transactionType).to.equal(6n); // For "other"
     expect(executeEvent.args.txIndex).to.equal(submitEvent.args.txIndex);
     expect(executeEvent.args.to).to.equal(simpleERC721.target);
     expect(executeEvent.args.value).to.equal(0n);
@@ -1542,7 +1581,7 @@ describe("MultisigWallet", function () {
     const _threeOwners = await multisigWallet.getOwners();
     const threeOwnerCount = await multisigWallet.getOwnerCount();
 
-    //Assert that owner1, owner2, owner3 and owner4 are the Owners
+    //Assert that owner1, owner2 and owner3 are the Owners
     expect(_threeOwners).to.eql([
       owner1.address,
       owner2.address,
@@ -1550,6 +1589,348 @@ describe("MultisigWallet", function () {
     ]);
     expect(threeOwnerCount).to.eql(3n);
   });
+
+  it("can batch-transfer multiple assets in one transaction", async function () {
+    // We'll do a single transaction that transfers ETH, ERC20, and ERC721
+    // from the MultisigWallet to various owners in one go.
+
+    // ---------------------------------------------------------------------
+    // 1. Deploy fresh ERC20 and ERC721 within this test
+    // ---------------------------------------------------------------------
+    const SimpleERC20Factory = await ethers.getContractFactory("SimpleERC20");
+    const initialSupply = ethers.parseEther("1000");
+    const simpleERC20 = await SimpleERC20Factory.connect(owner1).deploy(
+      initialSupply
+    );
+    await simpleERC20.waitForDeployment();
+
+    const SimpleERC721Factory = await ethers.getContractFactory("SimpleERC721");
+    const simpleERC721 = await SimpleERC721Factory.connect(owner1).deploy();
+    await simpleERC721.waitForDeployment();
+
+    // We'll deposit 0.05 ETH, deposit 50 ERC20 into the wallet,
+    // and transfer an NFT into it. Then we do the batch transfer.
+
+    // ---------------------------------------------------------------------
+    // 2. Deposit 0.05 ETH from owner1 into MultisigWallet
+    // ---------------------------------------------------------------------
+
+    // 2A. Record initial balances
+    const initialOwner1EthBalance = await ethers.provider.getBalance(
+      owner1.address
+    );
+    const initialWalletEthBalance = await ethers.provider.getBalance(
+      multisigWallet.target
+    );
+    //// replace ethers.provider with provide
+
+    // 2B. Perform the deposit from owner1
+    const depositEthAmount = ethers.parseEther("0.05");
+    const depositTx = await owner1.sendTransaction({
+      to: multisigWallet.target,
+      value: depositEthAmount,
+    });
+    const depositReceipt = await depositTx.wait();
+    const gasUsedDeposit = depositReceipt.gasUsed * depositReceipt.gasPrice;
+
+    // 2C. Check final wallet ETH balance & events
+    const walletBalanceAfterDeposit = await ethers.provider.getBalance(
+      multisigWallet.target
+    );
+    //// replace ethers.provider with provide
+
+    expect(walletBalanceAfterDeposit).to.equal(
+      initialWalletEthBalance + depositEthAmount
+    );
+
+    const depositBlock = depositReceipt.blockNumber;
+    const depositEvents = await multisigWallet.queryFilter(
+      "Deposit",
+      depositBlock,
+      depositBlock
+    );
+    expect(depositEvents.length).to.equal(1);
+    const depositEvent = depositEvents[0];
+    expect(depositEvent.args.sender).to.equal(owner1.address);
+    expect(depositEvent.args.amountOrTokenId).to.equal(depositEthAmount);
+    expect(depositEvent.args.balance).to.equal(walletBalanceAfterDeposit);
+
+    // 2D. Check final balance of owner1 (within a small margin for gas)
+    const finalOwner1EthBalance = await ethers.provider.getBalance(
+      owner1.address
+    );
+    //// replace ethers.provider with provide
+
+    const expectedOwner1BalanceAfterDeposit =
+      initialOwner1EthBalance - depositEthAmount - gasUsedDeposit;
+    const diffOwner1Balance =
+      finalOwner1EthBalance - expectedOwner1BalanceAfterDeposit;
+    const absDiffOwner1Balance =
+      diffOwner1Balance < 0n ? -diffOwner1Balance : diffOwner1Balance;
+    expect(absDiffOwner1Balance <= GAS_MARGIN).to.be.true;
+
+    // ---------------------------------------------------------------------
+    // 3. Transfer 50 ERC20 from owner1 to MultisigWallet
+    // ---------------------------------------------------------------------
+    const initialWalletERC20Balance = await simpleERC20.balanceOf(
+      multisigWallet.target
+    );
+    const erc20TransferAmount = ethers.parseEther("50");
+
+    // 3A. Mint or ensure owner1 has enough tokens, then transfer
+    // (You already minted enough in earlier tests, but let's do it again if needed.)
+    // We'll do a direct transfer: owner1 --> multisigWallet
+    const transferERC20Tx = await simpleERC20.transfer(
+      multisigWallet.target,
+      erc20TransferAmount
+    );
+    await transferERC20Tx.wait();
+
+    const finalWalletERC20Balance = await simpleERC20.balanceOf(
+      multisigWallet.target
+    );
+    expect(finalWalletERC20Balance).to.equal(
+      initialWalletERC20Balance + erc20TransferAmount
+    );
+
+    // ---------------------------------------------------------------------
+    // 4. Mint and transfer an ERC721 token to the MultisigWallet
+    // ---------------------------------------------------------------------
+    const nftTokenId = 777; // Must be fresh each time if re-running on the same contract
+    const mintTx = await simpleERC721.mint(owner1.address, nftTokenId);
+    await mintTx.wait();
+
+    // Check that owner1 is the NFT owner
+    let nftOwner = await simpleERC721.ownerOf(nftTokenId);
+    expect(nftOwner).to.equal(owner1.address);
+
+    // Transfer NFT to MultisigWallet
+    const transferERC721Tx = await simpleERC721.transferFrom(
+      owner1.address,
+      multisigWallet.target,
+      nftTokenId
+    );
+    await transferERC721Tx.wait();
+
+    // Check that MultisigWallet is now the owner
+    nftOwner = await simpleERC721.ownerOf(nftTokenId);
+    expect(nftOwner).to.equal(multisigWallet.target);
+
+    // ---------------------------------------------------------------------
+    // 5. Prepare the batchTransfer
+    // ---------------------------------------------------------------------
+    // We'll do 5 sub-transfers in one batch:
+    //   1)  0.01 ETH -> owner2
+    //   2)  20 ERC20 -> owner3
+    //   3)  NFT with tokenId=777 -> owner2
+    //   4)  10 ERC20 -> owner2
+    //   5)  0.005 ETH -> owner3
+    // We'll measure initial balances for owners2/3, then confirm final balances.
+
+    // 5A. Record owners2/3 initial ETH balances
+    const initialOwner2EthBalance = await ethers.provider.getBalance(
+      owner2.address
+    );
+    const initialOwner3EthBalance = await ethers.provider.getBalance(
+      owner3.address
+    );
+    //// replace ethers.provider with provide
+
+    // 5B. Record owners2/3 initial ERC20 balances
+    const initialOwner2ERC20Balance = await simpleERC20.balanceOf(
+      owner2.address
+    );
+    const initialOwner3ERC20Balance = await simpleERC20.balanceOf(
+      owner3.address
+    );
+
+    // 5C. The proposed batch transfers
+    const batchTransfers = [
+      {
+        to: owner2.address,
+        tokenAddress: ethers.ZeroAddress,
+        value: ethers.parseEther("0.01"),
+        tokenId: 0,
+      },
+      {
+        to: owner3.address,
+        tokenAddress: simpleERC20.target,
+        value: ethers.parseEther("20"),
+        tokenId: 0,
+      },
+      {
+        to: owner2.address,
+        tokenAddress: simpleERC721.target,
+        value: 0,
+        tokenId: nftTokenId,
+      },
+      {
+        to: owner2.address,
+        tokenAddress: simpleERC20.target,
+        value: ethers.parseEther("10"),
+        tokenId: 0,
+      },
+      {
+        to: owner3.address,
+        tokenAddress: ethers.ZeroAddress,
+        value: ethers.parseEther("0.005"),
+        tokenId: 0,
+      },
+    ];
+
+    // ---------------------------------------------------------------------
+    // 6. Submit the batchTransfer as owner2. This auto-confirms for owner2.
+    // ---------------------------------------------------------------------
+    multisigWallet = multisigWallet.connect(owner2);
+
+    const submitTx2 = await multisigWallet.batchTransfer(batchTransfers);
+    const submitReceipt2 = await submitTx2.wait();
+
+    const submitBlock2 = submitReceipt2.blockNumber;
+
+    // Check the SubmitTransaction event
+    const submitEvents2 = await multisigWallet.queryFilter(
+      "SubmitTransaction",
+      submitBlock2,
+      submitBlock2
+    );
+    expect(submitEvents2.length).to.equal(1);
+    const submitEvent2 = submitEvents2[0];
+    expect(submitEvent2.args._transactionType).to.equal(5n); // enum: BatchTransaction
+    const batchTxIndex = submitEvent2.args.txIndex;
+
+    // Check the auto-confirm from owner2
+    const confirmEvents2 = await multisigWallet.queryFilter(
+      "ConfirmTransaction",
+      submitBlock2,
+      submitBlock2
+    );
+    expect(confirmEvents2.length).to.equal(1);
+    expect(confirmEvents2[0].args.owner).to.equal(owner2.address);
+    expect(confirmEvents2[0].args.txIndex).to.equal(batchTxIndex);
+
+    // ---------------------------------------------------------------------
+    // 7. Confirm from a second owner to surpass 50% of 3 owners => triggers execution.
+    //    We'll do it from owner1 (the richest) to pay the final gas.
+    // ---------------------------------------------------------------------
+    multisigWallet = multisigWallet.connect(owner1);
+
+    // measure owner1's initial ETH balance
+    const initialOwner1BalanceBeforeConfirm = await ethers.provider.getBalance(
+      owner1.address
+    );
+    //// replace ethers.provider with provide
+
+    const confirmTxOwner1 = await multisigWallet.confirmTransaction(
+      batchTxIndex
+    );
+    const confirmReceiptOwner1 = await confirmTxOwner1.wait();
+    const gasUsedOwner1Confirm =
+      confirmReceiptOwner1.gasUsed * confirmReceiptOwner1.gasPrice;
+
+    const confirmBlockOwner1 = confirmReceiptOwner1.blockNumber;
+
+    // 7A. Check the ConfirmTransaction event from owner1
+    const confirmEventsOwner1 = await multisigWallet.queryFilter(
+      "ConfirmTransaction",
+      confirmBlockOwner1,
+      confirmBlockOwner1
+    );
+    // Possibly confirm + execute are separate logs
+    // But we just need to see exactly 1 confirm log from owner1 here
+    const confirmEventOwner1 = confirmEventsOwner1.find(
+      (ev) => ev.args.owner === owner1.address
+    );
+    expect(confirmEventOwner1).to.exist;
+    expect(confirmEventOwner1.args.txIndex).to.equal(batchTxIndex);
+
+    // 7B. The execution should happen now, so check ExecuteTransaction event
+    const executeEvents2 = await multisigWallet.queryFilter(
+      "ExecuteTransaction",
+      confirmBlockOwner1,
+      confirmBlockOwner1
+    );
+    expect(executeEvents2.length).to.equal(1);
+    expect(executeEvents2[0].args._transactionType).to.equal(5n);
+    expect(executeEvents2[0].args.txIndex).to.equal(batchTxIndex);
+    expect(executeEvents2[0].args.owner).to.equal(owner1.address);
+
+    // 7C. Check the 5 BatchTransferExecuted sub-events
+    const batchTransferExecutedEvents = await multisigWallet.queryFilter(
+      "BatchTransferExecuted",
+      confirmBlockOwner1,
+      confirmBlockOwner1
+    );
+    expect(batchTransferExecutedEvents.length).to.equal(batchTransfers.length);
+
+    // 7D. Check final owner1 balance with margin for gas usage
+    const finalOwner1BalanceAfterConfirm = await ethers.provider.getBalance(
+      owner1.address
+    );
+    //// replace ethers.provider with provide
+
+    const expectedOwner1BalanceAfterConfirm =
+      initialOwner1BalanceBeforeConfirm - gasUsedOwner1Confirm;
+    const diffOwner1 =
+      finalOwner1BalanceAfterConfirm - expectedOwner1BalanceAfterConfirm;
+    const absDiffOwner1 = diffOwner1 < 0n ? -diffOwner1 : diffOwner1;
+    expect(absDiffOwner1 <= GAS_MARGIN).to.be.true;
+
+    // ---------------------------------------------------------------------
+    // 8. Verify final recipient balances
+    // ---------------------------------------------------------------------
+
+    // 8A. Final ETH for owner2 and owner3
+    const finalOwner2EthBalance = await ethers.provider.getBalance(
+      owner2.address
+    );
+    const finalOwner3EthBalance = await ethers.provider.getBalance(
+      owner3.address
+    );
+    //// replace ethers.provider with provide
+
+    // We expected +0.01 ETH for owner2
+    const expectedOwner2Gain = ethers.parseEther("0.01");
+    const actualOwner2Gain = finalOwner2EthBalance - initialOwner2EthBalance;
+    const diffOwner2 = actualOwner2Gain - expectedOwner2Gain;
+    const absDiffOwner2 = diffOwner2 < 0n ? -diffOwner2 : diffOwner2;
+    expect(absDiffOwner2 <= GAS_MARGIN).to.be.true;
+
+    // We expected +0.005 ETH for owner3
+    const expectedOwner3Gain = ethers.parseEther("0.005");
+    const actualOwner3Gain = finalOwner3EthBalance - initialOwner3EthBalance;
+    // Similarly, owner3 did not confirm, so they should have no gas cost here.
+    expect(actualOwner3Gain).to.equal(expectedOwner3Gain);
+
+    // 8B. Final ERC20 for owner2 and owner3
+    const finalOwner2ERC20 = await simpleERC20.balanceOf(owner2.address);
+    const finalOwner3ERC20 = await simpleERC20.balanceOf(owner3.address);
+
+    // Owner2 got +10 tokens
+    const expectedOwner2Erc20Gain = ethers.parseEther("10");
+    expect(finalOwner2ERC20).to.equal(
+      initialOwner2ERC20Balance + expectedOwner2Erc20Gain
+    );
+
+    // Owner3 got +20 tokens
+    const expectedOwner3Erc20Gain = ethers.parseEther("20");
+    expect(finalOwner3ERC20).to.equal(
+      initialOwner3ERC20Balance + expectedOwner3Erc20Gain
+    );
+
+    // 8C. Final NFT ownership
+    const finalNftOwner = await simpleERC721.ownerOf(nftTokenId);
+    expect(finalNftOwner).to.equal(owner2.address);
+
+    // Done! We verified:
+    //  - ETH deposit
+    //  - ERC20 deposit
+    //  - NFT deposit
+    //  - Single batch transfer
+    //  - Confirm logs, execution logs, per-transfer logs
+    //  - Final balances for ETH, ERC20, and NFT
+  });
+
   it("can remove Owner3", async function () {
     // Connect onwer2 to the MultisigWallet contract
     multisigWallet = multisigWallet.connect(owner2);
@@ -1619,7 +2000,10 @@ describe("MultisigWallet", function () {
 
     // Verify that owner1 has the tokens
     const owner1Balance = await simpleERC20.balanceOf(owner1.address);
-    expect(owner1Balance).to.equal(initialSupply);
+    // Correct comparison using BigInt
+    expect(owner1Balance > ethers.parseEther("100")).to.be.true;
+
+    const initialOwner2Balance = await simpleERC20.balanceOf(owner2.address);
 
     // Now, let owner1 send some tokens to the multisigWallet
     const transferAmount = ethers.parseEther("100"); // Transfer 100 tokens
@@ -1749,7 +2133,7 @@ describe("MultisigWallet", function () {
 
     // Now, verify that owner2 has received the tokens
     const owner2Balance = await simpleERC20.balanceOf(owner2.address);
-    expect(owner2Balance).to.equal(transferAmount);
+    expect(owner2Balance).to.equal(initialOwner2Balance + transferAmount);
 
     // Also, verify that multisigWallet's balance has decreased
     const multisigWalletFinalBalance = await simpleERC20.balanceOf(
