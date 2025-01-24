@@ -2,6 +2,7 @@ require("@nomiclabs/hardhat-waffle");
 require("@nomiclabs/hardhat-etherscan");
 require("hardhat-deploy");
 require("dotenv").config({ path: "../.env" });
+require("hardhat-gas-reporter");
 
 module.exports = {
   solidity: {
@@ -24,14 +25,21 @@ module.exports = {
   },
 
   defaultNetwork: "hardhat",
+  gasReporter: {
+    enabled: true,
+    currency: "ETH", // Report in ETH
+    gasPrice: 6, // Adjust this to Sepolia's current gas price in gwei
+    showTimeSpent: true, // Optional: show test execution time
+  },
   networks: {
     hardhat: {
       chainId: 31337,
       blockConfirmations: 1,
-      // forking: {
-      //   url: process.env.MAINNET_RPC_URL,
-      //   blockNumber: 21500000,
-      // },
+      forking: {
+        url: process.env.MAINNET_RPC_URL,
+        blockNumber: 17296000, // higher ones don't is work, even tho the execution layer block height is already at 21689275...
+      },
+      gasPrice: 50000000000,
     },
     localhost: {
       chainId: 31337,

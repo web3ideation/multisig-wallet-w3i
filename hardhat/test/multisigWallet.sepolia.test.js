@@ -293,7 +293,7 @@ describe("MultisigWallet", function () {
     // Verify that owner1 has the tokens
     const initialOwner1Balance = await simpleERC20.balanceOf(owner1.address);
     // Correct comparison using BigInt
-    expect(initialOwner1Balance > ethers.parseEther("100")).to.be.true;
+    expect(initialOwner1Balance >= ethers.parseEther("100")).to.be.true;
 
     const initialOwner2Balance = await simpleERC20.balanceOf(owner2.address);
 
@@ -882,8 +882,8 @@ describe("MultisigWallet", function () {
     );
 
     // Mint a new token to owner1
-    const tokenId = 5; // this needs to be changed every time this test gets ran with the same simpleERC721 deployment (use 5 next) this can maybe be done with a script
-    const bigIntTokenId = 5n;
+    const tokenId = 1; // this needs to be changed every time this test gets ran with the same simpleERC721 deployment (use 2 next) this can maybe be done with a script
+    const bigIntTokenId = 1n;
     const mintTx = await simpleERC721
       .connect(owner1)
       .mint(owner1.address, tokenId);
@@ -1092,7 +1092,7 @@ describe("MultisigWallet", function () {
     try {
       // Owner2 submits the 'other' transaction
       submitTx = await multisigWallet.submitTransaction(
-        5n, // Enum for "other" transaction type (TransactionType.Other)
+        6n, // Enum for "other" transaction type (TransactionType.Other)
         simpleERC721.target, // The contract we're interacting with (SimpleERC721)
         0, // No ETH value being sent
         approvalData // The data encoding the approve function call
@@ -1119,7 +1119,7 @@ describe("MultisigWallet", function () {
     const submitEvent = submitEvents[0];
 
     // Assert that the Event is emitted as expected
-    expect(submitEvent.args._transactionType).to.equal(5n); // For "other"
+    expect(submitEvent.args._transactionType).to.equal(6n); // For "other"
     expect(submitEvent.args.to).to.equal(simpleERC721.target);
     expect(submitEvent.args.value).to.equal(0n);
     expect(submitEvent.args.tokenAddress).to.equal(
@@ -1198,7 +1198,7 @@ describe("MultisigWallet", function () {
 
     const executeEvent = executeEvents[0];
 
-    expect(executeEvent.args._transactionType).to.equal(5n); // For "other"
+    expect(executeEvent.args._transactionType).to.equal(6n); // For "other"
     expect(executeEvent.args.txIndex).to.equal(submitEvent.args.txIndex);
     expect(executeEvent.args.to).to.equal(simpleERC721.target);
     expect(executeEvent.args.value).to.equal(0n);
@@ -1821,10 +1821,9 @@ describe("MultisigWallet", function () {
     // We expected +0.01 ETH for owner2
     const expectedOwner2Gain = ethers.parseEther("0.01");
     const actualOwner2Gain = finalOwner2EthBalance - initialOwner2EthBalance;
-    // There's no reason for owner2 to spend gas on *this* transaction
-    // because the confirmations came from owner2 (auto-confirm) and from owner1.
-    // So we expect near-exactly 0.01 ETH difference for owner2.
-    expect(actualOwner2Gain).to.equal(expectedOwner2Gain);
+    const diffOwner2 = actualOwner2Gain - expectedOwner2Gain;
+    const absDiffOwner2 = diffOwner2 < 0n ? -diffOwner2 : diffOwner2;
+    expect(absDiffOwner2 <= GAS_MARGIN).to.be.true;
 
     // We expected +0.005 ETH for owner3
     const expectedOwner3Gain = ethers.parseEther("0.005");

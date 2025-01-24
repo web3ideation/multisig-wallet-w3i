@@ -11,6 +11,8 @@ describe("MultisigWallet", function () {
   let owner3;
   let owner4;
   let owner5;
+  let beforeBalances = {};
+
   //   let provider;
 
   //   // Environment variables
@@ -95,13 +97,45 @@ describe("MultisigWallet", function () {
     // Fetch signers
     [owner1, owner2, owner3, owner4, owner5] = await ethers.getSigners();
 
-    // Log the signers for debugging
-    console.log("Deploying contracts with the following owners:");
-    console.log("Owner1:", owner1.address);
-    console.log("Owner2:", owner2.address);
-    console.log("Owner3:", owner3.address);
-    console.log("Owner4:", owner4.address);
-    console.log("Owner5:", owner5.address);
+    // get initial owner balances
+    beforeBalances.owner1 = await ethers.provider.getBalance(owner1.address);
+    beforeBalances.owner2 = await ethers.provider.getBalance(owner2.address);
+    beforeBalances.owner3 = await ethers.provider.getBalance(owner3.address);
+    beforeBalances.owner4 = await ethers.provider.getBalance(owner4.address);
+    beforeBalances.owner5 = await ethers.provider.getBalance(owner5.address);
+
+    // Log the signers and their initial balances in ETH
+    console.log("Initial balances of owners:");
+    console.log(
+      "Owner1:",
+      owner1.address,
+      "| Balance (ETH):",
+      ethers.formatEther(beforeBalances.owner1)
+    );
+    console.log(
+      "Owner2:",
+      owner2.address,
+      "| Balance (ETH):",
+      ethers.formatEther(beforeBalances.owner2)
+    );
+    console.log(
+      "Owner3:",
+      owner3.address,
+      "| Balance (ETH):",
+      ethers.formatEther(beforeBalances.owner3)
+    );
+    console.log(
+      "Owner4:",
+      owner4.address,
+      "| Balance (ETH):",
+      ethers.formatEther(beforeBalances.owner4)
+    );
+    console.log(
+      "Owner5:",
+      owner5.address,
+      "| Balance (ETH):",
+      ethers.formatEther(beforeBalances.owner5)
+    );
 
     // Deploy the contract
     const MultisigWalletFactory = await ethers.getContractFactory(
@@ -1783,8 +1817,14 @@ describe("MultisigWallet", function () {
     // ---------------------------------------------------------------------
     multisigWallet = multisigWallet.connect(owner2);
 
-    const submitTx2 = await multisigWallet.batchTransfer(batchTransfers);
+    const submitTx2 = await multisigWallet.batchTransfer(batchTransfers, {
+      gasLimit: 30000000,
+    });
     const submitReceipt2 = await submitTx2.wait();
+    console.log(
+      "Gas used in batchTransfer:",
+      submitReceipt2.gasUsed.toString()
+    );
 
     const submitBlock2 = submitReceipt2.blockNumber;
 
@@ -1894,6 +1934,7 @@ describe("MultisigWallet", function () {
     const actualOwner2Gain = finalOwner2EthBalance - initialOwner2EthBalance;
     const diffOwner2 = actualOwner2Gain - expectedOwner2Gain;
     const absDiffOwner2 = diffOwner2 < 0n ? -diffOwner2 : diffOwner2;
+    console.log("absDiffOwner2", absDiffOwner2);
     expect(absDiffOwner2 <= GAS_MARGIN).to.be.true;
 
     // We expected +0.005 ETH for owner3
@@ -2192,5 +2233,71 @@ describe("MultisigWallet", function () {
     //Assert that owner1, owner2, owner3 and owner4 are the Owners
     expect(_oneOwner).to.eql([owner1.address]);
     expect(oneOwnerCount).to.eql(1n);
+  });
+
+  after(async function () {
+    // get final owner balances
+    const afterBalances = {
+      owner1: await ethers.provider.getBalance(owner1.address),
+      owner2: await ethers.provider.getBalance(owner2.address),
+      owner3: await ethers.provider.getBalance(owner3.address),
+      owner4: await ethers.provider.getBalance(owner4.address),
+      owner5: await ethers.provider.getBalance(owner5.address),
+    };
+
+    // Log final balances and their differences
+    console.log("\nFinal balances of owners:");
+    console.log(
+      "Owner1:",
+      owner1.address,
+      "| Balance (ETH):",
+      ethers.formatEther(afterBalances.owner1)
+    );
+    console.log(
+      "Owner2:",
+      owner2.address,
+      "| Balance (ETH):",
+      ethers.formatEther(afterBalances.owner2)
+    );
+    console.log(
+      "Owner3:",
+      owner3.address,
+      "| Balance (ETH):",
+      ethers.formatEther(afterBalances.owner3)
+    );
+    console.log(
+      "Owner4:",
+      owner4.address,
+      "| Balance (ETH):",
+      ethers.formatEther(afterBalances.owner4)
+    );
+    console.log(
+      "Owner5:",
+      owner5.address,
+      "| Balance (ETH):",
+      ethers.formatEther(afterBalances.owner5)
+    );
+
+    console.log("\nBalance differences (ETH):");
+    console.log(
+      "Owner1:",
+      ethers.formatEther(afterBalances.owner1 - beforeBalances.owner1)
+    );
+    console.log(
+      "Owner2:",
+      ethers.formatEther(afterBalances.owner2 - beforeBalances.owner2)
+    );
+    console.log(
+      "Owner3:",
+      ethers.formatEther(afterBalances.owner3 - beforeBalances.owner3)
+    );
+    console.log(
+      "Owner4:",
+      ethers.formatEther(afterBalances.owner4 - beforeBalances.owner4)
+    );
+    console.log(
+      "Owner5:",
+      ethers.formatEther(afterBalances.owner5 - beforeBalances.owner5)
+    );
   });
 });
