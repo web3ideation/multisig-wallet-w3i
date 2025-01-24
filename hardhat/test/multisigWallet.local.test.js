@@ -1817,9 +1817,7 @@ describe("MultisigWallet", function () {
     // ---------------------------------------------------------------------
     multisigWallet = multisigWallet.connect(owner2);
 
-    const submitTx2 = await multisigWallet.batchTransfer(batchTransfers, {
-      gasLimit: 30000000,
-    });
+    const submitTx2 = await multisigWallet.batchTransfer(batchTransfers);
     const submitReceipt2 = await submitTx2.wait();
     console.log(
       "Gas used in batchTransfer:",
@@ -1935,6 +1933,7 @@ describe("MultisigWallet", function () {
     const diffOwner2 = actualOwner2Gain - expectedOwner2Gain;
     const absDiffOwner2 = diffOwner2 < 0n ? -diffOwner2 : diffOwner2;
     console.log("absDiffOwner2", absDiffOwner2);
+    console.log("GAS_MARGIN", GAS_MARGIN);
     expect(absDiffOwner2 <= GAS_MARGIN).to.be.true;
 
     // We expected +0.005 ETH for owner3
