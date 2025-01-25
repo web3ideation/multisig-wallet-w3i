@@ -1,4 +1,4 @@
-// change the "tokenId"s and "bigIntTokenId" before every run!
+// redeploy all contracts before every run (and adapt the addresses in the .env)
 
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
@@ -1702,19 +1702,19 @@ describe("MultisigWallet", function () {
       },
       {
         to: owner3.address,
-        tokenAddress: simpleERC20_ADDRESS_2,
+        tokenAddress: SIMPLEERC20_ADDRESS_2,
         value: ethers.parseEther("20"),
         tokenId: 0,
       },
       {
         to: owner2.address,
-        tokenAddress: simpleERC721_ADDRESS_3,
+        tokenAddress: SIMPLEERC721_ADDRESS_3,
         value: 0,
         tokenId: nftTokenId,
       },
       {
         to: owner2.address,
-        tokenAddress: simpleERC20_ADDRESS_2,
+        tokenAddress: SIMPLEERC20_ADDRESS_2,
         value: ethers.parseEther("10"),
         tokenId: 0,
       },
