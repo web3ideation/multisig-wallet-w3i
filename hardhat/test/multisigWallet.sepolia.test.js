@@ -16,8 +16,12 @@ describe("MultisigWallet", function () {
   // Environment variables
   const {
     MULTISIGWALLET_ADDRESS,
-    SIMPLEERC20_ADDRESS,
-    SIMPLEERC721_ADDRESS,
+    SIMPLEERC20_ADDRESS_1,
+    SIMPLEERC721_ADDRESS_1,
+    SIMPLEERC20_ADDRESS_2,
+    SIMPLEERC721_ADDRESS_2,
+    SIMPLEERC20_ADDRESS_3,
+    SIMPLEERC721_ADDRESS_3,
     OWNER1_ADDRESS,
     OWNER1_PRIVATE_KEY,
     OWNER2_ADDRESS,
@@ -41,8 +45,12 @@ describe("MultisigWallet", function () {
       !OWNER1_ADDRESS ||
       !OWNER1_PRIVATE_KEY ||
       !SEPOLIA_RPC_URL ||
-      !SIMPLEERC20_ADDRESS ||
-      !SIMPLEERC721_ADDRESS ||
+      !SIMPLEERC20_ADDRESS_1 ||
+      !SIMPLEERC721_ADDRESS_1 ||
+      !SIMPLEERC20_ADDRESS_2 ||
+      !SIMPLEERC721_ADDRESS_2 ||
+      !SIMPLEERC20_ADDRESS_3 ||
+      !SIMPLEERC721_ADDRESS_3 ||
       !OWNER2_ADDRESS ||
       !OWNER2_PRIVATE_KEY ||
       !OWNER3_ADDRESS ||
@@ -428,7 +436,7 @@ describe("MultisigWallet", function () {
     expect(executeEvent.args.txIndex).to.equal(submitEvent.args.txIndex);
     expect(executeEvent.args.to).to.equal(owner2.address);
     expect(executeEvent.args.value).to.equal(0n);
-    expect(executeEvent.args.tokenAddress).to.equal(simpleERC20.target);
+    expect(executeEvent.args.tokenAddress).to.equal(simpleERC20_1.target);
     expect(executeEvent.args.amountOrTokenId).to.equal(transferAmount);
     expect(executeEvent.args.owner).to.equal(owner1.address);
     expect(executeEvent.args.data).to.equal(expectedData);
@@ -1694,19 +1702,19 @@ describe("MultisigWallet", function () {
       },
       {
         to: owner3.address,
-        tokenAddress: simpleERC20_2_ADDRESS,
+        tokenAddress: simpleERC20_ADDRESS_2,
         value: ethers.parseEther("20"),
         tokenId: 0,
       },
       {
         to: owner2.address,
-        tokenAddress: simpleERC721_3_ADDRESS,
+        tokenAddress: simpleERC721_ADDRESS_3,
         value: 0,
         tokenId: nftTokenId,
       },
       {
         to: owner2.address,
-        tokenAddress: simpleERC20_2_ADDRESS,
+        tokenAddress: simpleERC20_ADDRESS_2,
         value: ethers.parseEther("10"),
         tokenId: 0,
       },
