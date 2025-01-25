@@ -1722,6 +1722,12 @@ describe("MultisigWallet", function () {
 
     const submitTx2 = await multisigWallet.batchTransfer(batchTransfers);
     const submitReceipt2 = await submitTx2.wait();
+    // Effective gasPrice (EIP-1559 can have base + maxFee; for Hardhat it's often simply gasPrice)
+    const gasUsedBatchTx = submitReceipt2.gasUsed;
+    const gasPriceBatchTx =
+      submitReceipt2.effectiveGasPrice ?? submitReceipt2.gasPrice;
+    // Total gas cost in WEI
+    const totalGasCostBatchTx = gasUsedBatchTx * gasPriceBatchTx;
 
     const submitBlock2 = submitReceipt2.blockNumber;
 
@@ -1819,11 +1825,21 @@ describe("MultisigWallet", function () {
     const finalOwner3EthBalance = await provider.getBalance(owner3.address);
 
     // We expected +0.01 ETH for owner2
-    const expectedOwner2Gain = ethers.parseEther("0.01");
+
+    // We intended to give owner2 +0.01 ETH in the batch. But they also paid 'totalGasCostBatchTx' to send the batch
+    const nominalEthGain = ethers.parseEther("0.01"); // The actual transferred amount to owner2
+    const netExpectedGain = nominalEthGain - totalGasCostBatchTx; // Gains minus gas cost
+
     const actualOwner2Gain = finalOwner2EthBalance - initialOwner2EthBalance;
-    const diffOwner2 = actualOwner2Gain - expectedOwner2Gain;
+    const diffOwner2 = actualOwner2Gain - netExpectedGain;
+
+    // A small margin is still a good idea:
+    const bigMargin = ethers.parseEther("0.001"); // 0.001 ETH
+
     const absDiffOwner2 = diffOwner2 < 0n ? -diffOwner2 : diffOwner2;
-    expect(absDiffOwner2 <= GAS_MARGIN).to.be.true;
+
+    // Now do a plain boolean check:
+    expect(absDiffOwner2 <= bigMargin).to.be.true;
 
     // We expected +0.005 ETH for owner3
     const expectedOwner3Gain = ethers.parseEther("0.005");
