@@ -1662,11 +1662,11 @@ describe("MultisigWallet", function () {
     // 5. Prepare the batchTransfer
     // ---------------------------------------------------------------------
     // We'll do 5 sub-transfers in one batch:
-    //   1)  0.01 ETH -> owner2
+    //   1)  0.03 ETH -> owner2
     //   2)  20 ERC20 -> owner3
     //   3)  NFT with tokenId=777 -> owner2
     //   4)  10 ERC20 -> owner2
-    //   5)  0.005 ETH -> owner3
+    //   5)  0.02 ETH -> owner3
     // We'll measure initial balances for owners2/3, then confirm final balances.
 
     // 5A. Record owners2/3 initial ETH balances
@@ -1686,7 +1686,7 @@ describe("MultisigWallet", function () {
       {
         to: owner2.address,
         tokenAddress: ethers.ZeroAddress,
-        value: ethers.parseEther("0.01"),
+        value: ethers.parseEther("0.03"),
         tokenId: 0,
       },
       {
@@ -1710,7 +1710,7 @@ describe("MultisigWallet", function () {
       {
         to: owner3.address,
         tokenAddress: ethers.ZeroAddress,
-        value: ethers.parseEther("0.005"),
+        value: ethers.parseEther("0.02"),
         tokenId: 0,
       },
     ];
@@ -1826,8 +1826,8 @@ describe("MultisigWallet", function () {
 
     // We expected +0.01 ETH for owner2
 
-    // We intended to give owner2 +0.01 ETH in the batch. But they also paid 'totalGasCostBatchTx' to send the batch
-    const nominalEthGain = ethers.parseEther("0.01"); // The actual transferred amount to owner2
+    // We intended to give owner2 +0.03 ETH in the batch. But they also paid 'totalGasCostBatchTx' to send the batch
+    const nominalEthGain = ethers.parseEther("0.03"); // The actual transferred amount to owner2
     const netExpectedGain = nominalEthGain - totalGasCostBatchTx; // Gains minus gas cost
 
     const actualOwner2Gain = finalOwner2EthBalance - initialOwner2EthBalance;
@@ -1841,8 +1841,8 @@ describe("MultisigWallet", function () {
     // Now do a plain boolean check:
     expect(absDiffOwner2 <= bigMargin).to.be.true;
 
-    // We expected +0.005 ETH for owner3
-    const expectedOwner3Gain = ethers.parseEther("0.005");
+    // We expected +0.02 ETH for owner3
+    const expectedOwner3Gain = ethers.parseEther("0.02");
     const actualOwner3Gain = finalOwner3EthBalance - initialOwner3EthBalance;
     // Similarly, owner3 did not confirm, so they should have no gas cost here.
     expect(actualOwner3Gain).to.equal(expectedOwner3Gain);
