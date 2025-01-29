@@ -13,12 +13,6 @@ have two different numconfirmationrequired for normal transactions and adding/de
 
 ✅ bei 2 ownern reicht die confirmation von einem um tokens zu transferieren also 50% +1 funktioniert nicht richtig
 
-enhance the event information as explained by cGPT above
-
-muss ich noch irgendwelche getter und setter funktionen schreiben?
-
-Gas Efficiency: Using assembly for decoding is efficient, but ensure it’s necessary for the data format you expect. Solidity's abi.decode could be used if the data format is consistent.
-
 using an enum instead of a boolean for isERC721 can make the code more readable and maintainable. Enums provide a clearer understanding of the possible states and can be extended more easily in the future if needed. ✅
 
 ok jetzt mal das ganze in hardhat testen ob ich da mit dem simplified contract das gleiche problem habe oder ob es an remix liegt. wenn nicht dann schauen ob die erc721 und erc20 executes gehen. wenn ja dann einfach für die add und remove owner mit highlevel calls umprogrammieren - einfach erstmal wieder den hardhat node zum laufen bringen und dann statt mit der console mit scripten mit dem contract interargieren. vlt kann ich später mal hardhat durch foundry ablösen - vielleicht auch einfach mal mit cGPT komplett hardhat neu einrichten, also checken ob die version passt und dann neue projekt anlegen - remix sepolia funktioniert auch nicht, also wird hardhat wohl auch nicht funktionieren. das problem ist also im contract selbst. als nächstes schauen ob die erc721 und erc20 executes gehen. wenn ja dann einfach für die add und remove owner mit highlevel calls umprogrammieren✅
@@ -43,7 +37,7 @@ adapt testscript to the new voting mechanism✅
 Reentrancy Guard: Use OpenZeppelin's ReentrancyGuard modifier for public and external functions to protect against reentrancy attacks. You already inherit from ReentrancyGuard, so applying its modifier to susceptible functions is advisable.
 -> bei addOwnerInternal gibts einen fehler wenn ich den reentrancy guard nutze...✅
 
-cGPT meint confirmTransaction sollte auch einen reentrancy guard haben. Mit cGPT die implementation machen da ich mit Claude das problem habe, dass dann der executeTransaction call nicht geht. vlt sollte ich das automatische executeTransaction auch raus lassen wenn das wirklich nicht mit nonReentrant geht... -> ne doch nicht weil execute transaction eh erst aufgerufen wird, wenn genug confirmations da sind
+cGPT meint confirmTransaction sollte auch einen reentrancy guard haben. Mit cGPT die implementation machen da ich mit Claude das problem habe, dass dann der executeTransaction call nicht geht. vlt sollte ich das automatische executeTransaction auch raus lassen wenn das wirklich nicht mit nonReentrant geht... -> ne doch nicht weil execute transaction eh erst aufgerufen wird, wenn genug confirmations da sind ✅
 
 Gas limits: Ensure that loops in your contract (like in deactivatePendingTransactions) can't cause out-of-gas errors with a large number of transactions. ✅
 
@@ -123,27 +117,36 @@ prepare mainnet deploy script with real private key ✅
 
 sepolia testeth besorgen ✅
 
-➡️ _Mainnet deploy_ (Niklas Public Key, Stefan Public Key, Gasprice niedirg) -> Public keys ins deploy script und dann einfach nur den befehl ausführen
-➡️ activate optimizer in the foundry.toml optimizer = true, optimizer_runs = 200 (10 for cheaper deployment, 5000 for cheaper executions)
----
-
-.
-.
-.
+✅ activate optimizer in the foundry.toml optimizer = true, optimizer_runs = 200 (10 for cheaper deployment, 5000 for cheaper executions)
 
 use dotenv for the depoly scripts ✅
 
 dont use dotenv at all and do it like patrick cyfrin explains it ✅
 
-CI workflow run CI: All jobs have failed -> update the expected logs in the foundry test script
+CI workflow run CI: All jobs have failed -> update the expected logs in the foundry test script ✅
+
+Cyfrin nach audit fragen (wie sind die kosten?) und ob die auch Certora Prover oder andere Formal Verification tools nutzen - https://www.cyfrin.io/blog/solidity-smart-contract-formal-verification-symbolic-execution ✅
+
+does the multisig wallet execute transactions as the wallet itself or as the owner who made the last confirmation? this is relevant for functions being called that use the msg.sender. ✅
+
+
+➡️ _Mainnet deploy_ (Niklas Public Key, Stefan Public Key, Gasprice niedirg) -> Public keys ins deploy script und dann einfach nur den befehl ausführen
+
+
+**optional toDo:** 
+
+add getter function for latest transactionId
+
+Gas Efficiency: 
+Using assembly for decoding is efficient, but ensure it’s necessary for the data format you expect. Solidity's abi.decode could be used if the data format is consistent.
+Use offchain services for transparency and only have this contract process the minimum things
+
+add the transaction ID to the events of BatchtransferExecuted, OwnerAdded and OwnerRemoved
+
+add newNumConfirmations in the event of confirmTransaction and revokeConfirmation
 
 how about ERC777 and other token standards? How about implementing safeTransfer for ERC20 tokens? -> using a delegate call to a **fallback manager**. but at this point i should aswell use the **diamond setup** to have the whole contract upgradable I guess...
 
-Cyfrin nach audit fragen (wie sind die kosten?) und ob die auch Certora Prover oder andere Formal Verification tools nutzen - https://www.cyfrin.io/blog/solidity-smart-contract-formal-verification-symbolic-execution
-
-does the multisig wallet execute transactions as the wallet itself or as the owner who made the last confirmation? this is relevant for functions being called that use the msg.sender.
-
-## todo extension finden die relative code zeilen bezüge unterstütz
 
 -
 -
