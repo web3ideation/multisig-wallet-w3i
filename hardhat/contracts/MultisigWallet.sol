@@ -145,6 +145,7 @@ contract MultisigWallet is ReentrancyGuard, IERC721Receiver {
         RemoveOwner, // 4
         BatchTransaction, // 5
         Other // 6
+
     }
 
     /**
