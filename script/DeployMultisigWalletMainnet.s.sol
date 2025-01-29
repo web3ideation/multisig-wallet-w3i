@@ -23,4 +23,4 @@ contract DeployMultisigWalletMainnet is Script {
     }
 }
 
-// to deploy run: source .env AND forge script script/DeployMultisigWalletMainnet.s.sol --rpc-url $MAINNET_RPC_URL --broadcast --etherscan-api-key $ETHERSCAN_API_KEY --verify --account defaultKey --sender 0xe8df60a93b2b328397a8cbf73f0d732aaa11e33d
+// to deploy run: source .env AND forge script script/DeployMultisigWalletMainnet.s.sol --rpc-url $MAINNET_RPC_URL --broadcast --etherscan-api-key $ETHERSCAN_API_KEY --verify --account mainnetDevKey --sender 0x759941ECB2B2961566C94e4dB53ae3EeC35F980c

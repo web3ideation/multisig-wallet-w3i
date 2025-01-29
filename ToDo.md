@@ -147,6 +147,16 @@ add newNumConfirmations in the event of confirmTransaction and revokeConfirmatio
 
 how about ERC777 and other token standards? How about implementing safeTransfer for ERC20 tokens? -> using a delegate call to a **fallback manager**. but at this point i should aswell use the **diamond setup** to have the whole contract upgradable I guess...
 
+No strict check of the function selectors for ERC20/721 calls:
+In decodeTransactionData(), the contract only checks the raw length of data (68 or 100 bytes) to guess whether it's a transfer or transferFrom (ERC20) or safeTransferFrom (ERC721). There’s no explicit check that the 4-byte selector in data actually matches the expected function.
+
+No limit on batch-transfer array size (Test a large BatchTransfer on a local testnet first to check if the gascosts are within the EVM constraint)
+
+External calls don’t bubble up revert reasons
+When the contract calls external addresses (for ETH, Other, ERC20, etc.), it only does require(success, "... failed"). Any custom error message or reason string from the callee is lost. This is typical for a simple multisig but worth noting if you want detailed debugging info from failed calls.
+
+No time delay / timelock on adding or removing owners
+Because adding or removing an owner only requires 2/3 (rounded) of current owners, and there is no timelock or waiting period, a sufficiently large majority can immediately change ownership structure. This is by design in many multisigs but is worth noting as a potential governance/operational concern (owners can be changed very quickly).
 
 -
 -
