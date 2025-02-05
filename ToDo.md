@@ -130,10 +130,14 @@ Cyfrin nach audit fragen (wie sind die kosten?) und ob die auch Certora Prover o
 does the multisig wallet execute transactions as the wallet itself or as the owner who made the last confirmation? this is relevant for functions being called that use the msg.sender. ✅
 
 
-➡️ _Mainnet deploy_ (Niklas Public Key, Stefan Public Key, Gasprice niedirg) -> Public keys ins deploy script und dann einfach nur den befehl ausführen
+_Mainnet deploy_ (Niklas Public Key, Stefan Public Key, Gasprice niedirg) -> Public keys ins deploy script und dann einfach nur den befehl ausführen ✅
 
 
 **optional toDo:** 
+
+mit nem batchtransfer macht man ja ein upgrade, dafür sollte die 66% mehrheit greifen -> code anpassen
+
+the "Name" is "MultisigWallet" maybe change that to ideationPool or sth.
 
 add getter function for latest transactionId
 
