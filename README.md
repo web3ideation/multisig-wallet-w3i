@@ -5,7 +5,7 @@ A Solidity-based multisig wallet that requires multiple confirmations to execute
 
 ---
 
-Deployed at `0x66dcc49c47ebc505a4b560fD14Dc143f0098407f`
+Deployed on the Ethereum Mainnet at `0x66dcc49c47ebc505a4b560fD14Dc143f0098407f`
 
 ---
 

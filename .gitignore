@@ -16,3 +16,6 @@ node_modules
 
 # hardhat artifacts folder
 artifacts
+
+# internal ToDo
+/ToDo.md
