@@ -1,4 +1,3 @@
-
 # MultisigWallet
 
 A Solidity-based multisig wallet that requires multiple confirmations to execute transactions. This contract uses [OpenZeppelin](https://github.com/OpenZeppelin/openzeppelin-contracts) libraries under the hood.
@@ -15,8 +14,8 @@ Deployed on the Ethereum Mainnet at `0x66dcc49c47ebc505a4b560fD14Dc143f0098407f`
 - **Compiler Version:** `0.8.7` (or higher)
 - **Key Features:**
   - **Multiple confirmations** for executing transactions.
-  - **Support** for ETH, ERC20, ERC721, and batch transfers.
-  - Ability to **add and remove owners** through multisig transactions.
+  - **Support** for ETH, ERC20, ERC721, Custom ("other") and batch transfers (at consensus >50%).
+  - Ability to **add and remove owners** through multisig transactions (at consensus >=2/3).
   - Deactivates pending transactions when adding or removing owners, ensuring consistent and secure state.
   - Built-in **reentrancy protection** via `ReentrancyGuard`.
 
@@ -24,11 +23,11 @@ Deployed on the Ethereum Mainnet at `0x66dcc49c47ebc505a4b560fD14Dc143f0098407f`
 
 ## Repository Structure
 
-- `contracts/MultisigWallet.sol`: The main contract source.
+- `src/MultisigWallet.sol`: The main contract source.
 - `hardhat/`: Scripts/tests for **staging** on actual testnets (used because Foundry’s live network support is limited).
 - `test/` or `foundry-tests/`: Local unit tests using Foundry.
-- `lib/`: (If present) dependencies or library code.
-- `third-party-licenses/`: Contains additional license details for third-party code, e.g., OpenZeppelin.
+- `lib/`: dependencies or library code.
+- `script/`: Contains deployment scripts.
 
 ---
 
@@ -50,17 +49,10 @@ Deployed on the Ethereum Mainnet at `0x66dcc49c47ebc505a4b560fD14Dc143f0098407f`
    - If using Hardhat for staging tests, install packages within `hardhat/`:
      ```bash
      cd hardhat
-     npm install
+     yarn
      ```
 
 ### Deployment
-
-- **Local / Unit Test Deployment** (Foundry):
-  ```bash
-  forge build
-  forge test
-  ```
-  You can also deploy locally (Anvil) or to other networks using Foundry’s CLI.
 
 - **Constructor**:
   ```solidity
@@ -69,27 +61,60 @@ Deployed on the Ethereum Mainnet at `0x66dcc49c47ebc505a4b560fD14Dc143f0098407f`
   - Pass an array of owner addresses (e.g., `[0xOwner1, 0xOwner2, 0xOwner3]`).
   - Do **not** send ETH in the constructor.
 
-  Example command for Foundry:
-  ```bash
-  forge create --rpc-url <YOUR_RPC_URL> \
-               --constructor-args "['0xOwner1','0xOwner2','0xOwner3']" \
-               MultisigWallet
-  ```
 
-- **Staging / Testnet Deployment** (Hardhat):
-  1. Go to `hardhat/`.
-  2. Configure your `hardhat.config.js` or `hardhat.config.ts` (RPC settings, private key, etc.).
-  3. Run:
+- **Testnet Deployment** (Foundry):
+  1. Run: `source .env` to initialize dotenv.
+  2. Run:
      ```bash
-     npx hardhat run scripts/deploy.ts --network <testnet-name>
+     forge script script/DeployMultisigWalletSepolia.s.sol --rpc-url $SEPOLIA_RPC_URL --broadcast --etherscan-api-key $ETHERSCAN_API_KEY --verify --account <Keystore ERC-2335 account Name> --sender <Keystore ERC-2335 public key>
      ```
-  Foundry doesn’t fully support certain live operations (like Etherscan verification), so Hardhat is used.
+  Foundry doesn’t fully support certain live operations (like Etherscan verification), so Hardhat is used for staging (/hardhat/test).
 
 ---
 
 ## Interacting with the Contract
 
-### Submitting a Transaction
+### Sending ETH
+
+```solidity
+function sendETH(address _to, uint256 _amount) public onlyMultisigOwner
+```
+
+- `_amount` is in Wei.
+- Uses `submitTransaction` internally with `TransactionType.ETH`.
+- Once the required confirmations are reached (>50%), the transaction gets executed (the last owner to confirm pays the gasfees to execute).
+
+### ERC20 / ERC721 Transfers
+
+- **ERC20**: `transferERC20`, `transferFromERC20`
+- **ERC721**: `safeTransferFromERC721`
+
+- All submit a transaction under the hood (with the correct function signature encoded).
+- Once the required confirmations are reached (>50%), the transaction gets executed (the last owner to confirm pays the gasfees to execute).
+
+### Batch Transfers
+
+```solidity
+function batchTransfer(BatchTransaction[] memory transfers)
+```
+
+- Each `BatchTransaction` has `to`, `tokenAddress`, `value`, `tokenId`.
+- Supports bulk sending in a single multisig transaction.
+- Test a large BatchTransfer on a local testnet first to check if the gas costs are within EVM constraints.
+- Once the required confirmations are reached (>50%), the transaction gets executed (the last owner to confirm pays the gasfees to execute).
+
+### Adding/Removing Owners
+
+```solidity
+function addOwner(address _newOwner) public onlyMultisigOwner
+function removeOwner(address _owner) public onlyMultisigOwner
+```
+
+- Both functions are wrappers around `submitTransaction` with `TransactionType.AddOwner` or `TransactionType.RemoveOwner`.
+- Internally, these proposals **require 2/3 majority confirmations** to succeed, as adding or removing owners is a critical action.
+- Once the required confirmations are reached, the transaction gets executed, which will update the owners array and deactivate all pending transactions to maintain a secure state (the last owner to confirm pays the gasfees to execute).
+
+### Submitting a custom ("other") Transaction
 
 ```solidity
 function submitTransaction(
@@ -101,56 +126,44 @@ function submitTransaction(
 ```
 
 - `_value` is in **Wei** when sending ETH.
-- For pure ETH transfers, use `0x` as `data`.
+- To call a function on **another contract** (an "Other" transaction), encode its function signature and arguments.
+  - For example, in Foundry: `cast calldata "setName(string)" "Wolfgang"`.
+  - Then call `submitTransaction` with `_transactionType = 6 (Other)`, `_to = <target contract>`, `_value = 0`, and `_data = <encoded data>`.
 - When you call `submitTransaction`, the transaction is created and **auto-confirmed** by the calling owner.
+- Once the required confirmations are reached (>50%), the transaction gets executed (the last owner to confirm pays the gasfees to execute).
 
 ### Confirming / Revoking
 
-- **Confirm**: `confirmTransaction(uint256 _txIndex)`
-- **Revoke**:  `revokeConfirmation(uint256 _txIndex)`
-
-Requires you to be an owner, and the transaction must still be active.
-
-### Sending ETH
-
 ```solidity
-function sendETH(address _to, uint256 _amount) public onlyMultisigOwner
+function confirmTransaction(uint256 _txIndex)
+function revokeConfirmation(uint256 _txIndex)
 ```
-- `_amount` in Wei.
-- Uses `submitTransaction` internally with `TransactionType.ETH`.
 
-### ERC20 / ERC721 Transfers
-
-- **ERC20**: `transferERC20`, `transferFromERC20`
-- **ERC721**: `safeTransferFromERC721`
-
-All submit a transaction under the hood (with the correct function signature encoded).
-
-### Batch Transfers
-
-```solidity
-function batchTransfer(BatchTransaction[] memory transfers)
-```
-- Each `BatchTransaction` has `to`, `tokenAddress`, `value`, `tokenId`.
-- Supports bulk sending in a single multisig transaction.
-- Test a large BatchTransfer on a local testnet first to check if the gascosts are within the EVM constraint
+- Any multisig owner can confirm a transaction.
+- The transaction must still be active.
+- Once enough confirmations are reached (based on the transaction type), executeTransaction gets triggered automatically (gascosts for the transaction will be paid by the last confirmer).
 
 ---
 
 ## Testing
 
 - **Unit Tests (Foundry)**:
-  ```bash
-  forge test
+   ```bash
+  forge test --match-contract MultisigWalletTest -vvv
   ```
   Runs local tests on Anvil.
 
 - **Staging Tests (Hardhat)**:
+  Used to confirm behavior on real networks.
+
+  update dotenv values for deployment addresses
+
   ```bash
   cd hardhat
-  npx hardhat test --network <testnet-name>
+  yarn hardhat test multisigWallet.sepolia.test.js --network seploia
   ```
-  Used to confirm behavior on real networks.
+  
+  Change the "tokenId"s and "bigIntTokenId" before every run!
 
 ---
 
@@ -166,23 +179,3 @@ This project includes code from the following open-source project(s):
 
 - [OpenZeppelin Contracts](https://github.com/OpenZeppelin/openzeppelin-contracts) - Licensed under the MIT License.  
 - Further details can be found in the [`third-party-licenses`](../third-party-licenses) folder.
-
----
-
-## How to Use
-
-1. **Deploy** the contract with an array of owners. Example:
-   ```bash
-   ["0x123...","0xABC...","0x987..."]
-   ```
-2. **Submit a Transaction**:
-   - Value must be in Wei if sending ETH.
-   - If sending only ETH, use `data = 0x`.
-3. **Confirm**:
-   - After a transaction is submitted, you (and other owners) must confirm.
-   - Once enough confirmations are reached, you can execute.
-4. **Be mindful**:
-   - Some transactions (like adding/removing owners) require 2/3 majority.
-   - Simpler transactions require over 50% approval.
-
-If you need more information or have questions, please open an issue in this repository.
