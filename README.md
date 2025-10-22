@@ -7,6 +7,12 @@ A Solidity-based multisig wallet that requires multiple confirmations to execute
 Deployed on the Ethereum Mainnet at `0x66dcc49c47ebc505a4b560fD14Dc143f0098407f`
 
 ---
+Deployed on the Ehereum Testnet at `0x2180aFbC0156E6fF3156ca57C4dFb0a1AB9152C7` 
+with the owners
+0xE8dF60a93b2B328397a8CBf73f0d732aaa11e33D wolf3i dev acc1
+0x8a200122f666af83aF2D4f425aC7A35fa5491ca7 wolf3i dev acc2
+0xf034e8ad11F249c8081d9da94852bE1734bc11a4 niklas dev
+
 
 ## Overview
 
