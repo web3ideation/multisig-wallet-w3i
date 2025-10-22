@@ -21,7 +21,7 @@ with the owners
 - **Key Features:**
   - **Multiple confirmations** for executing transactions.
   - **Support** for ETH, ERC20, ERC721, Custom ("other") and batch transfers (at consensus >50%).
-  - Ability to **add and remove owners** through multisig transactions (at consensus >=2/3).
+  - Ability to **add and remove owners** through multisig transactions (at consensus 2/3).
   - Deactivates pending transactions when adding or removing owners, ensuring consistent and secure state.
   - Built-in **reentrancy protection** via `ReentrancyGuard`.
 
